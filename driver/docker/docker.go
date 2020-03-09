@@ -3,21 +3,27 @@ package docker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"path"
+	"strconv"
 
 	"github.com/alinz/baker.go"
 	"github.com/alinz/baker.go/driver"
+	"github.com/alinz/baker.go/internal/addr"
 )
 
-func join(host string, p string) (string, error) {
-	u, err := url.Parse(host)
+func join(paths ...string) (string, error) {
+	u, err := url.Parse(paths[0])
 	if err != nil {
 		return "", err
 	}
-	u.Path = path.Join(u.Path, p)
+
+	paths[0] = u.Path
+
+	u.Path = path.Join(paths...)
 	return u.String(), nil
 }
 
@@ -36,15 +42,89 @@ const DefaultAddr = "http://localhost"
 type Watcher struct {
 	client *http.Client
 	addr   string
+	events <-chan *Event
 }
 
 var _ driver.Watcher = (*Watcher)(nil)
 
 func (w *Watcher) Container() *baker.Container {
-	return nil
+	event, ok := <-w.events
+	if !ok {
+		return nil
+	}
+
+	return w.load(event)
 }
 
-func (w *Watcher) Events(size int) (<-chan *Event, error) {
+func (w *Watcher) load(event *Event) *baker.Container {
+	url, err := join(w.addr, "/containers/", event.ID, "/json")
+	if err != nil {
+		return &baker.Container{
+			ID:  event.ID,
+			Err: err,
+		}
+	}
+
+	resp, err := w.client.Get(url)
+	if err != nil {
+		return &baker.Container{
+			ID:  event.ID,
+			Err: err,
+		}
+	}
+
+	payload := &struct {
+		ID string `json:"Id"`
+
+		Config *struct {
+			Labels *struct {
+				Network     string `json:"baker.network"`
+				ServicePort string `json:"baker.service.port"`
+				ServicePing string `json:"baker.service.ping"`
+				ServiceSSL  string `json:"baker.service.ssl"`
+			} `json:"Labels"`
+		} `json:"Config"`
+
+		NetworkSettings struct {
+			Networks map[string]struct {
+				IPAddress string `json:"IPAddress"`
+			} `json:"Networks"`
+		} `json:"NetworkSettings"`
+	}{}
+
+	err = json.NewDecoder(resp.Body).Decode(payload)
+	if err != nil {
+		return &baker.Container{
+			ID:  event.ID,
+			Err: err,
+		}
+	}
+
+	network, ok := payload.NetworkSettings.Networks[payload.Config.Labels.Network]
+	if !ok {
+		return &baker.Container{
+			ID:  event.ID,
+			Err: fmt.Errorf("network '%s' not exists in labels", payload.Config.Labels.Network),
+		}
+	}
+
+	port, err := strconv.ParseInt(payload.Config.Labels.ServicePort, 10, 32)
+	if err != nil {
+		return &baker.Container{
+			ID:  event.ID,
+			Err: fmt.Errorf("failed to parse port for container '%s' because %s", event.ID, err),
+		}
+	}
+
+	return &baker.Container{
+		ID:         event.ID,
+		Active:     true,
+		ConfigPath: payload.Config.Labels.ServicePing,
+		RemoteAddr: addr.Remote(network.IPAddress, int(port)),
+	}
+}
+
+func (w *Watcher) eventsChannel(size int) (<-chan *Event, error) {
 	url, err := join(w.addr, "/containers/json")
 	if err != nil {
 		return nil, err
@@ -112,6 +192,16 @@ func (w *Watcher) Events(size int) (<-chan *Event, error) {
 	}()
 
 	return events, nil
+}
+
+func (w *Watcher) Start() error {
+	events, err := w.eventsChannel(10)
+	if err != nil {
+		return err
+	}
+
+	w.events = events
+	return nil
 }
 
 func New(client *http.Client, addr string) *Watcher {
