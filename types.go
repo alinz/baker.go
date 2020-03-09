@@ -119,7 +119,7 @@ type Domain struct {
 // newDomain creates a new empty domain object which has trie key value
 func newDomain() *Domain {
 	return &Domain{
-		paths: trie.New(),
+		paths: trie.New(true),
 	}
 }
 
