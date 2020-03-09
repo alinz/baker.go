@@ -69,8 +69,8 @@ func (e *httpRemoteEndpoint) String() string {
 // RemoteHTTP converts the plain address to http address
 func RemoteHTTP(addr Endpoint, path string, secure bool) Endpoint {
 	return &httpRemoteEndpoint{
-		Endpoint:   addr,
-		path:   path,
-		secure: secure,
+		Endpoint: addr,
+		path:     path,
+		secure:   secure,
 	}
 }
