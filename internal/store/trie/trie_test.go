@@ -68,7 +68,7 @@ func TestPutGetTrie(t *testing.T) {
 	}
 
 	for i, testCase := range testCases {
-		root := trie.New()
+		root := trie.New(false)
 
 		for _, kv := range testCase.keyValues {
 			err := root.Put([]rune(kv.key), kv.value)
@@ -188,7 +188,7 @@ func TestPutDelGet(t *testing.T) {
 	}
 
 	for i, testCase := range testCases {
-		root := trie.New()
+		root := trie.New(false)
 
 		for _, action := range testCase.actions {
 			switch action.kind {

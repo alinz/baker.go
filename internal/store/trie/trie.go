@@ -18,6 +18,7 @@ type Node struct {
 	children map[rune]*Node
 	val      *value
 	wild     bool
+	upsert   bool
 }
 
 var _ store.KeyValue = (*Node)(nil)
@@ -67,7 +68,7 @@ func (n *Node) Put(key []rune, val interface{}) error {
 
 		next, ok := curr.children[r]
 		if !ok {
-			next = New()
+			next = New(n.upsert)
 			if r == wildChar {
 				curr.wild = true
 				break
@@ -81,7 +82,7 @@ func (n *Node) Put(key []rune, val interface{}) error {
 		curr = next
 	}
 
-	if curr.val != nil {
+	if curr.val != nil && !n.upsert {
 		return store.ErrItemAlreadyHasValue
 	}
 
@@ -129,8 +130,9 @@ func (n *Node) Del(key []rune) error {
 	return nil
 }
 
-func New() *Node {
+func New(upsert bool) *Node {
 	return &Node{
 		children: make(map[rune]*Node),
+		upsert:   upsert,
 	}
 }
