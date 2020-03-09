@@ -3,6 +3,8 @@ package addr
 import (
 	"bytes"
 	"fmt"
+	"net/url"
+	"path"
 	"strings"
 )
 
@@ -73,4 +75,20 @@ func RemoteHTTP(addr Endpoint, path string, secure bool) Endpoint {
 		path:     path,
 		secure:   secure,
 	}
+}
+
+func Join(endpoint Endpoint, paths ...string) (string, error) {
+	if _, ok := endpoint.(*httpRemoteEndpoint); !ok {
+		endpoint = RemoteHTTP(endpoint, "", false)
+	}
+
+	u, err := url.Parse(endpoint.String())
+	if err != nil {
+		return "", err
+	}
+
+	paths = append([]string{u.Path}, paths...)
+
+	u.Path = path.Join(paths...)
+	return u.String(), nil
 }

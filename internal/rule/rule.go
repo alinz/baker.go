@@ -3,6 +3,12 @@ package rule
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/alinz/baker.go/internal/errors"
+)
+
+const (
+	ErrDuplicate = errors.Value("duplicate rule")
 )
 
 type Registrar interface {
@@ -12,11 +18,14 @@ type Registrar interface {
 
 var registrars = make(map[string]Registrar)
 
-func Register(registrar Registrar) error {
-	if _, ok := registrars[registrar.Name()]; ok {
-		return nil
+// Register registers all rules internally
+func Register(r ...Registrar) error {
+	for _, registrar := range r {
+		if _, ok := registrars[registrar.Name()]; ok {
+			return ErrDuplicate
+		}
+		registrars[registrar.Name()] = registrar
 	}
-	registrars[registrar.Name()] = registrar
 	return nil
 }
 
