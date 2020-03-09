@@ -39,6 +39,11 @@ var DefaultClient = &http.Client{
 // DefaultAddr is a default docker host and port which communicating with Docker deamon
 const DefaultAddr = "http://localhost"
 
+type Event struct {
+	ID     string `json:"id"`
+	Active bool   `json:"active"`
+}
+
 type Watcher struct {
 	client *http.Client
 	addr   string
