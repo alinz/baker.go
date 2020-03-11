@@ -97,7 +97,6 @@ func (e *Engine) Start() {
 			close(pulser)
 		}()
 
-		deletedContainers := make([]*baker.Container, 0)
 		containersMap := make(map[string]*baker.Container)
 		pulse := time.After(10 * time.Second)
 
@@ -112,19 +111,12 @@ func (e *Engine) Start() {
 					containersMap[container.ID] = container
 				} else {
 					delete(containersMap, container.ID)
-					deletedContainers = append(deletedContainers, container)
 				}
+
+				pulser <- container
 
 			case <-pulse:
-				log.Debug("containers: %d deleted, %d updated", len(deletedContainers), len(containersMap))
-
-				// send deleted items
-				for _, container := range deletedContainers {
-					pulser <- container
-				}
-
-				// clear deleted array
-				deletedContainers = deletedContainers[:0]
+				log.Debug("updated %d containers", len(containersMap))
 
 				// loop over all items inside map
 				for _, container := range containersMap {
@@ -133,7 +125,6 @@ func (e *Engine) Start() {
 
 				// setup the next tick
 				pulse = time.After(10 * time.Second)
-
 			}
 		}
 	}()
