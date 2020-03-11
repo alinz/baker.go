@@ -4,9 +4,9 @@ import (
 	"github.com/alinz/baker.go/internal/addr"
 	"github.com/alinz/baker.go/internal/balance"
 	"github.com/alinz/baker.go/internal/errors"
-	"github.com/alinz/baker.go/internal/rule"
 	"github.com/alinz/baker.go/internal/store"
 	"github.com/alinz/baker.go/internal/store/trie"
+	"github.com/alinz/baker.go/pkg/rule"
 )
 
 const (

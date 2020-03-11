@@ -6,7 +6,7 @@ import (
 	"github.com/alinz/baker.go"
 	"github.com/alinz/baker.go/driver"
 	"github.com/alinz/baker.go/engine"
-	"github.com/alinz/baker.go/internal/rule"
+	"github.com/alinz/baker.go/pkg/rule"
 )
 
 type mockedWatcher struct {

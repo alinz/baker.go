@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httputil"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/alinz/baker.go"
 	"github.com/alinz/baker.go/driver"
+	"github.com/alinz/baker.go/internal/acme"
 	"github.com/alinz/baker.go/internal/addr"
 	"github.com/alinz/baker.go/internal/response"
 )
@@ -32,6 +34,7 @@ type Engine struct {
 }
 
 var _ http.Handler = (*Engine)(nil)
+var _ acme.PolicyManager = (*Engine)(nil)
 
 func (e *Engine) configs(container *baker.Container) ([]*baker.Config, error) {
 	configURL, err := addr.Join(container.RemoteAddr, container.ConfigPath)
@@ -194,6 +197,19 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.URL.Path = ""
 
 	handler.ServeHTTP(w, r)
+}
+
+func (e *Engine) HostPolicy(ctx context.Context, host string) error {
+	// www.example.com not store in domains.Paths
+	// need to remove `www.` from it.
+	h, _ := normalizeHost(host)
+
+	_, err := e.store.Get(h)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // New creates a new Reverse Proxy Engine based on given driver
