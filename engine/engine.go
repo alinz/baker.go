@@ -14,8 +14,14 @@ import (
 	"github.com/alinz/baker.go/driver"
 	"github.com/alinz/baker.go/internal/acme"
 	"github.com/alinz/baker.go/internal/addr"
+	"github.com/alinz/baker.go/internal/errors"
 	"github.com/alinz/baker.go/internal/response"
+	"github.com/alinz/baker.go/pkg/logger"
 )
+
+var log = logger.Default
+
+var ErrBadRemoteAddr = errors.Value("bad remote address")
 
 func normalizeHost(host string) (string, bool) {
 	www := false
@@ -37,6 +43,10 @@ var _ http.Handler = (*Engine)(nil)
 var _ acme.PolicyManager = (*Engine)(nil)
 
 func (e *Engine) configs(container *baker.Container) ([]*baker.Config, error) {
+	if container.RemoteAddr == nil {
+		return nil, ErrBadRemoteAddr
+	}
+
 	configURL, err := addr.Join(container.RemoteAddr, container.ConfigPath)
 	if err != nil {
 		return nil, err
@@ -44,8 +54,11 @@ func (e *Engine) configs(container *baker.Container) ([]*baker.Config, error) {
 
 	resp, err := e.client.Get(configURL)
 	if err != nil {
+		log.Error("failed to get config from %s because %s", configURL, err)
 		return nil, err
 	}
+
+	log.Debug("request config from %s has status code %d", configURL, resp.StatusCode)
 
 	var configs []*baker.Config
 
@@ -57,11 +70,14 @@ func (e *Engine) configs(container *baker.Container) ([]*baker.Config, error) {
 	return configs, nil
 }
 
-func (e *Engine) Start() error {
+func (e *Engine) Start() {
 	// watcher
 	watcher := make(chan *baker.Container, 100)
 	go func() {
-		defer close(watcher)
+		defer func() {
+			log.Info("watcher pipe is closed")
+			close(watcher)
+		}()
 
 		for {
 			container := e.watcher.Container()
@@ -76,7 +92,10 @@ func (e *Engine) Start() error {
 	// pulser
 	pulser := make(chan *baker.Container, 100)
 	go func() {
-		defer close(pulser)
+		defer func() {
+			log.Info("pulser pipe is closed")
+			close(pulser)
+		}()
 
 		deletedContainers := make([]*baker.Container, 0)
 		containersMap := make(map[string]*baker.Container)
@@ -84,22 +103,6 @@ func (e *Engine) Start() error {
 
 		for {
 			select {
-			case <-pulse:
-				// send deleted items
-				for _, container := range deletedContainers {
-					pulser <- container
-				}
-				// clear deleted array
-				deletedContainers = deletedContainers[:0]
-
-				// loop over all items inside map
-				for _, container := range containersMap {
-					pulser <- container
-				}
-
-				// setup the next tick
-				pulse = time.After(10 * time.Second)
-
 			case container, ok := <-watcher:
 				if !ok {
 					return
@@ -111,6 +114,26 @@ func (e *Engine) Start() error {
 					delete(containersMap, container.ID)
 					deletedContainers = append(deletedContainers, container)
 				}
+
+			case <-pulse:
+				log.Debug("containers: %d deleted, %d updated", len(deletedContainers), len(containersMap))
+
+				// send deleted items
+				for _, container := range deletedContainers {
+					pulser <- container
+				}
+
+				// clear deleted array
+				deletedContainers = deletedContainers[:0]
+
+				// loop over all items inside map
+				for _, container := range containersMap {
+					pulser <- container
+				}
+
+				// setup the next tick
+				pulse = time.After(10 * time.Second)
+
 			}
 		}
 	}()
@@ -118,9 +141,20 @@ func (e *Engine) Start() error {
 	// pinger
 	pinger := make(chan *baker.Target, 100)
 	go func() {
-		defer close(pinger)
+		defer func() {
+			log.Info("pinger pipe is closed")
+			close(pinger)
+		}()
 
 		for container := range pulser {
+			if !container.Active {
+				pinger <- &baker.Target{
+					Container: container,
+					Config:    nil,
+				}
+				continue
+			}
+
 			configs, err := e.configs(container)
 
 			if err != nil {
@@ -130,29 +164,36 @@ func (e *Engine) Start() error {
 					Container: container,
 					Config:    nil,
 				}
-			} else {
-				for _, config := range configs {
-					pinger <- &baker.Target{
-						Container: container,
-						Config:    config,
-					}
+
+				log.Error("Failed to ping %s container: %s", container.ID, err)
+				continue
+			}
+
+			for _, config := range configs {
+				pinger <- &baker.Target{
+					Container: container,
+					Config:    config,
 				}
 			}
 		}
 	}()
 
 	// updater
-	for target := range pinger {
-		e.mux.Lock()
-		if !target.Container.Active || target.Container.Err != nil {
-			e.store.Remove(target.Container)
-		} else {
-			e.store.Add(target.Container, target.Config)
-		}
-		e.mux.Unlock()
-	}
+	go func() {
+		defer func() {
+			log.Info("updater pipe is closed")
+		}()
 
-	return nil
+		for target := range pinger {
+			e.mux.Lock()
+			if !target.Container.Active || target.Container.Err != nil {
+				e.store.Remove(target.Container)
+			} else {
+				e.store.Add(target.Container, target.Config)
+			}
+			e.mux.Unlock()
+		}
+	}()
 }
 
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -194,7 +235,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		handler = target.Config.RuleHandlers[i-1].ApplyRule(handler)
 	}
 
-	r.URL.Path = ""
+	// r.URL.Path = ""
 
 	handler.ServeHTTP(w, r)
 }
@@ -204,7 +245,10 @@ func (e *Engine) HostPolicy(ctx context.Context, host string) error {
 	// need to remove `www.` from it.
 	h, _ := normalizeHost(host)
 
+	e.mux.RLock()
 	_, err := e.store.Get(h)
+	e.mux.RUnlock()
+
 	if err != nil {
 		return err
 	}
