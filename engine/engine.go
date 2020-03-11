@@ -224,7 +224,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	remoteAddr, err := url.Parse(addr.RemoteHTTP(target.Container.RemoteAddr, target.Container.ConfigPath, false).String())
+	remoteAddr, err := url.Parse(addr.RemoteHTTP(target.Container.RemoteAddr, target.Config.Path, false).String())
 	if err != nil {
 		response.AsJSON(w, http.StatusServiceUnavailable, err)
 		return
@@ -235,7 +235,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		handler = target.Config.RuleHandlers[i-1].ApplyRule(handler)
 	}
 
-	// r.URL.Path = ""
+	r.URL.Path = ""
 
 	handler.ServeHTTP(w, r)
 }
