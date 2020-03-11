@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 
@@ -20,6 +21,9 @@ func (s serverFun) Start(handler http.Handler) error {
 	return s(handler)
 }
 
+var GitCommit string = "development"
+var Version string = "master"
+
 func main() {
 	acmePath := os.Getenv("BAKER_ACME_PATH")
 	acmeEnable := os.Getenv("BAKER_ACME") == "YES"
@@ -27,6 +31,16 @@ func main() {
 	if acmePath == "" {
 		acmePath = "."
 	}
+
+	fmt.Fprintf(os.Stdout, `
+#################################################
+Baker.go 
+ - Version: %s 
+ - Git Commit: %s
+
+Source: https://github.com/alinz/baker.go
+#################################################
+`, Version, GitCommit)
 
 	// register all rules
 	rule.Register(

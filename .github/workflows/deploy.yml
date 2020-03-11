@@ -1,0 +1,32 @@
+name: Baker.go
+on:
+  push:
+    tags:
+    - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: extract version from tag
+        id: tag_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+
+      - uses: actions/checkout@v2
+      - name: build
+        env:
+          DOCKER_LOGIN: ${{ secrets.DOCKER_LOGIN }}
+          DOCKER_SECRET: ${{ secrets.DOCKER_SECRET }}
+        run: |
+          GIT_COMMIT=$(git rev-list -1 HEAD)
+          
+          go test ./... -v
+
+          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.GitCommit=$GIT_COMMIT -X main.Version=${{ steps.tag_version.outputs.VERSION }}" -o baker cmd/baker/main.go
+
+          docker build -t alinz/baker.go:${{ steps.tag_version.outputs.VERSION }} .
+          docker build -t alinz/baker.go:latest .
+
+          echo ${{ secrets.DOCKER_SECRET }} | docker login -u ${{ secrets.DOCKER_LOGIN }} --password-stdin
+          docker push alinz/baker.go:${{ steps.tag_version.outputs.VERSION }}
+          docker push alinz/baker.go:latest
