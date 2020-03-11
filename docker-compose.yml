@@ -5,12 +5,16 @@ services:
     image: alinz/baker.go:latest
 
     environment:
-      - ACME=false
-      - ACME_PATH=/acme/cert
+      # enables ACME system
+      - BAKER_ACME=NO
+      # folder location which holds all certification
+      - BAKER_ACME_PATH=/acme/cert
+      # log level of baker. Debug, Warn, Info, Error are the values for level
+      - BAKER_LOG_LEVEL=Debug
 
     ports:
       - '80:80'
-      - '443:443'
+      - '443:443' # if BAKER_ACME set to YES, this port needs to be available
 
     networks:
       - baker
