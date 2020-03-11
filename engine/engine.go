@@ -22,6 +22,7 @@ import (
 var log = logger.Default
 
 var ErrBadRemoteAddr = errors.Value("bad remote address")
+var ErrServiceNotAvailable = errors.Value("service not available")
 
 func normalizeHost(host string) (string, bool) {
 	www := false
@@ -195,7 +196,8 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	domain, err := e.store.Get(host)
 	e.mux.RUnlock()
 	if err != nil {
-		response.AsJSON(w, http.StatusServiceUnavailable, err)
+		log.Warn("failed to get any domain for %s and %s becuase of %s", host, path, err)
+		response.AsJSON(w, http.StatusServiceUnavailable, ErrServiceNotAvailable)
 		return
 	}
 
@@ -203,7 +205,8 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	service, err := domain.Get(path)
 	e.mux.RUnlock()
 	if err != nil {
-		response.AsJSON(w, http.StatusServiceUnavailable, err)
+		log.Warn("failed to get any service for %s and %s becuase of %s", host, path, err)
+		response.AsJSON(w, http.StatusServiceUnavailable, ErrServiceNotAvailable)
 		return
 	}
 
@@ -211,13 +214,20 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	target, err := service.Get()
 	e.mux.RUnlock()
 	if err != nil {
-		response.AsJSON(w, http.StatusServiceUnavailable, err)
+		log.Warn("failed to get any target for %s and %s becuase of %s", host, path, err)
+		response.AsJSON(w, http.StatusServiceUnavailable, ErrServiceNotAvailable)
 		return
 	}
 
 	remoteAddr, err := url.Parse(addr.RemoteHTTP(target.Container.RemoteAddr, path, false).String())
 	if err != nil {
-		response.AsJSON(w, http.StatusServiceUnavailable, err)
+		log.Warn("failed to create remote address for %s and %s because of %s", target.Container.RemoteAddr, path, err)
+		response.AsJSON(w, http.StatusServiceUnavailable, ErrServiceNotAvailable)
+		return
+	}
+
+	if !target.Config.Ready {
+		response.AsJSON(w, http.StatusServiceUnavailable, ErrServiceNotAvailable)
 		return
 	}
 
