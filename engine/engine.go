@@ -243,8 +243,8 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// there is no point to have that so in this section, we are removing it
 		r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
 
-		for i := 0; i < len(target.Config.RuleHandlers); i++ {
-			target.Config.RuleHandlers[i].ApplyRule(r)
+		for i := 0; i < len(target.Config.Rules); i++ {
+			target.Config.Rules[i].ApplyRule(r)
 		}
 	}
 

@@ -18,10 +18,10 @@ const (
 
 // Config is a configuration which can be sent by service
 type Config struct {
-	Domain       string        `json:"domain"` // could be example.com. www.example.com, api.example.com
-	Path         string        `json:"path"`   // could be /v1/system, /v1/system*
-	Ready        bool          `json:"ready"`
-	RuleHandlers rule.Handlers `json:"rule_handlers"`
+	Domain string        `json:"domain"` // could be example.com. www.example.com, api.example.com
+	Path   string        `json:"path"`   // could be /v1/system, /v1/system*
+	Ready  bool          `json:"ready"`
+	Rules  rule.Handlers `json:"rules"`
 }
 
 // Container is piece of object which contains information

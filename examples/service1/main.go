@@ -28,7 +28,7 @@ func main() {
 					"domain": "example1.com",
 					"path": "/sample1*",
 					"ready": true,
-					"rule_handlers": [
+					"rules": [
 						{
 							"name": "path_replace",
 							"config": {
