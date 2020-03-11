@@ -10,4 +10,4 @@ RUN cd /src && go build -ldflags "-X main.GitCommit=${GIT_COMMIT} -X main.Versio
 FROM alpine
 WORKDIR /app
 COPY --from=build-env /src/baker /app/
-ENTRYPOINT ./goapp
+ENTRYPOINT ./baker
