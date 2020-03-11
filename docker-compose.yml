@@ -2,7 +2,7 @@ version: '3.5'
 
 services:
   service1:
-    image: alinz/baker.go:1.0.0
+    image: alinz/baker.go:latest
 
     environment:
       - ACME=false
