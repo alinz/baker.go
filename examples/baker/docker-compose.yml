@@ -1,0 +1,29 @@
+version: '3.5'
+
+services:
+  baker:
+    image: baker:latest
+
+    environment:
+      # enables ACME system
+      - BAKER_ACME=NO
+      # folder location which holds all certification
+      - BAKER_ACME_PATH=/acme/cert
+
+    ports:
+      - '80:80'
+      - '443:443'
+
+    # make sure to use the right network
+    networks:
+      - baker
+
+    volumes:
+      # make sure it can access to main docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./acme/cert:/acme/cert
+
+networks:
+  baker:
+    name: baker_net
+    driver: bridge
