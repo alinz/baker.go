@@ -2,7 +2,7 @@ version: '3.5'
 
 services:
   baker:
-    image: baker:latest
+    image: alinz/baker.go:latest
 
     environment:
       # enables ACME system
