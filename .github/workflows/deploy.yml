@@ -24,6 +24,8 @@ jobs:
           go test ./... -v
 
           docker build --build-arg GIT_COMMIT=$GIT_COMMIT --build-arg VERSION=$VERSION -t alinz/baker.go:$VERSION .
+          docker build --build-arg GIT_COMMIT=$GIT_COMMIT --build-arg VERSION=$VERSION -t alinz/baker.go:latest .
 
           echo ${{ secrets.DOCKER_SECRET }} | docker login -u ${{ secrets.DOCKER_LOGIN }} --password-stdin
           docker push alinz/baker.go:$VERSION
+          docker push alinz/baker.go:latest
