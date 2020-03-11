@@ -22,7 +22,7 @@ jobs:
           
           go test ./... -v
 
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.GitCommit=$GIT_COMMIT -X main.Version=${{ steps.tag_version.outputs.VERSION }}" -o baker cmd/baker/main.go
+          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.GitCommit=$GIT_COMMIT -X main.Version=${{ steps.tag_version.outputs.VERSION }}" -o ./baker cmd/baker/main.go
 
           docker build -t alinz/baker.go:${{ steps.tag_version.outputs.VERSION }} .
           docker build -t alinz/baker.go:latest .

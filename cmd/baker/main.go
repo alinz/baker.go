@@ -33,13 +33,16 @@ func main() {
 	}
 
 	fmt.Fprintf(os.Stdout, `
-#################################################
-Baker.go 
- - Version: %s 
- - Git Commit: %s
+  ____        _                                
+ | __ )  __ _| | _____ _ __      __ _  ___   
+ |  _ \ / _  | |/ / _ \ '__|    / _  |/ _ \  
+ | |_) | (_| |   <  __/ |   _  | (_| | (_) | 
+ |____/ \__,_|_|\_\___|_|  (_)  \__, |\___/  
+                                |___/
+Version: %s
+Git Hash: %s 
+https://github.com/alinz/baker.go
 
-Source: https://github.com/alinz/baker.go
-#################################################
 `, Version, GitCommit)
 
 	// register all rules
