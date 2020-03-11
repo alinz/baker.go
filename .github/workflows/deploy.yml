@@ -19,14 +19,11 @@ jobs:
           DOCKER_SECRET: ${{ secrets.DOCKER_SECRET }}
         run: |
           GIT_COMMIT=$(git rev-list -1 HEAD)
+          VERSION=${{ steps.tag_version.outputs.VERSION }}
           
           go test ./... -v
 
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.GitCommit=$GIT_COMMIT -X main.Version=${{ steps.tag_version.outputs.VERSION }}" -o ./baker cmd/baker/main.go
-
-          docker build -t alinz/baker.go:${{ steps.tag_version.outputs.VERSION }} .
-          docker build -t alinz/baker.go:latest .
+          docker build --build-arg GIT_COMMIT=$GIT_COMMIT --build-arg VERSION=$VERSION -t alinz/baker.go:$VERSION .
 
           echo ${{ secrets.DOCKER_SECRET }} | docker login -u ${{ secrets.DOCKER_LOGIN }} --password-stdin
-          docker push alinz/baker.go:${{ steps.tag_version.outputs.VERSION }}
-          docker push alinz/baker.go:latest
+          docker push alinz/baker.go:$VERSION
