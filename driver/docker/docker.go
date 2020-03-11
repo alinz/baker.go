@@ -62,6 +62,13 @@ func (w *Watcher) Container() *baker.Container {
 }
 
 func (w *Watcher) load(event *Event) *baker.Container {
+	if !event.Active {
+		return &baker.Container{
+			ID:     event.ID,
+			Active: false,
+		}
+	}
+
 	url, err := join(w.addr, "/containers/", event.ID, "/json")
 	if err != nil {
 		return &baker.Container{
@@ -86,7 +93,6 @@ func (w *Watcher) load(event *Event) *baker.Container {
 				Network     string `json:"baker.network"`
 				ServicePort string `json:"baker.service.port"`
 				ServicePing string `json:"baker.service.ping"`
-				ServiceSSL  string `json:"baker.service.ssl"`
 			} `json:"Labels"`
 		} `json:"Config"`
 
