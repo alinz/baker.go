@@ -75,7 +75,7 @@ func (e *Engine) Start() {
 	watcher := make(chan *baker.Container, 100)
 	go func() {
 		defer func() {
-			log.Info("watcher pipe is closed")
+			log.Debug("watcher pipe is closed")
 			close(watcher)
 		}()
 
@@ -93,7 +93,7 @@ func (e *Engine) Start() {
 	pulser := make(chan *baker.Container, 100)
 	go func() {
 		defer func() {
-			log.Info("pulser pipe is closed")
+			log.Debug("pulser pipe is closed")
 			close(pulser)
 		}()
 
@@ -142,7 +142,7 @@ func (e *Engine) Start() {
 	pinger := make(chan *baker.Target, 100)
 	go func() {
 		defer func() {
-			log.Info("pinger pipe is closed")
+			log.Debug("pinger pipe is closed")
 			close(pinger)
 		}()
 
@@ -181,7 +181,7 @@ func (e *Engine) Start() {
 	// updater
 	go func() {
 		defer func() {
-			log.Info("updater pipe is closed")
+			log.Debug("updater pipe is closed")
 		}()
 
 		for target := range pinger {
@@ -224,7 +224,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	remoteAddr, err := url.Parse(addr.RemoteHTTP(target.Container.RemoteAddr, target.Config.Path, false).String())
+	remoteAddr, err := url.Parse(addr.RemoteHTTP(target.Container.RemoteAddr, path, false).String())
 	if err != nil {
 		response.AsJSON(w, http.StatusServiceUnavailable, err)
 		return
@@ -235,7 +235,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		handler = target.Config.RuleHandlers[i-1].ApplyRule(handler)
 	}
 
-	r.URL.Path = ""
+	// r.URL.Path = ""
 
 	handler.ServeHTTP(w, r)
 }
