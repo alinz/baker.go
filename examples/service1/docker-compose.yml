@@ -5,6 +5,7 @@ services:
     image: baker/service:latest
 
     labels:
+      - 'baker.enable=true'
       - 'baker.network=baker_net'
       - 'baker.service.port=8000'
       - 'baker.service.ping=/config'

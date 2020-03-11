@@ -90,6 +90,7 @@ func (w *Watcher) load(event *Event) *baker.Container {
 
 		Config *struct {
 			Labels *struct {
+				Enable      string `json:"baker.enable"`
 				Network     string `json:"baker.network"`
 				ServicePort string `json:"baker.service.port"`
 				ServicePing string `json:"baker.service.ping"`
@@ -108,6 +109,13 @@ func (w *Watcher) load(event *Event) *baker.Container {
 		return &baker.Container{
 			ID:  event.ID,
 			Err: err,
+		}
+	}
+
+	if payload.Config.Labels.Enable != "true" {
+		return &baker.Container{
+			ID:     event.ID,
+			Active: false,
 		}
 	}
 

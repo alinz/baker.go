@@ -1,4 +1,4 @@
-FROM alpine
+FROM alpine:latest
 WORKDIR /app
 COPY ./service /app/service
 
