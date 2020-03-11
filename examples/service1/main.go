@@ -18,6 +18,26 @@ func main() {
 					"domain": "example.com",
 					"path": "/sample1",
 					"ready": true
+				},
+				{
+					"domain": "example.com",
+					"path": "/sample2",
+					"ready": false
+				},
+				{
+					"domain": "example1.com",
+					"path": "/sample1*",
+					"ready": true,
+					"rule_handlers": [
+						{
+							"name": "path_replace",
+							"config": {
+								"search": "/sample1",
+								"replace": "",
+								"times": 1
+							}
+						}
+					]
 				}
 			]
 		`))
@@ -25,7 +45,7 @@ func main() {
 		}
 
 		fmt.Println("Rest of api")
-		w.Write([]byte(r.URL.Path))
+		w.Write([]byte(r.URL.String()))
 	}
 
 	err := http.ListenAndServe(":8000", http.HandlerFunc(handler))
