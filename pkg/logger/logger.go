@@ -10,9 +10,10 @@ import (
 type Level int
 
 const (
-	Debug Level = iota
-	Warn
+	All Level = iota
+	Debug
 	Info
+	Warn
 	Error
 )
 

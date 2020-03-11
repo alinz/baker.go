@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/alinz/baker.go/driver/docker"
 	"github.com/alinz/baker.go/engine"
 	"github.com/alinz/baker.go/internal/acme"
+	"github.com/alinz/baker.go/pkg/logger"
 	"github.com/alinz/baker.go/pkg/rule"
 )
 
@@ -21,12 +23,39 @@ func (s serverFun) Start(handler http.Handler) error {
 	return s(handler)
 }
 
+// GitCommit will be set by build scriot
 var GitCommit string = "development"
+
+// Version will be set by build script and refer to tag version
 var Version string = "master"
+
+func setLogLevel(val string) {
+	var level logger.Level
+
+	switch val {
+	case "all":
+		level = logger.All
+	case "debug":
+		level = logger.Debug
+	case "info":
+		level = logger.Info
+	case "warn":
+		level = logger.Warn
+	case "error":
+		level = logger.Error
+	default:
+		level = logger.Info
+	}
+
+	logger.Default.Level(level)
+}
 
 func main() {
 	acmePath := os.Getenv("BAKER_ACME_PATH")
-	acmeEnable := os.Getenv("BAKER_ACME") == "YES"
+	acmeEnable := strings.ToLower(os.Getenv("BAKER_ACME")) == "yes"
+	logLevel := strings.ToLower(os.Getenv("BAKER_LOG_LEVEL"))
+
+	setLogLevel(logLevel)
 
 	if acmePath == "" {
 		acmePath = "."
