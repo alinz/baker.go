@@ -73,8 +73,8 @@ service1_1  |  |  _ \ / _  | |/ / _ \ '__|    / _  |/ _ \
 service1_1  |  | |_) | (_| |   <  __/ |   _  | (_| | (_) | 
 service1_1  |  |____/ \__,_|_|\_\___|_|  (_)  \__, |\___/  
 service1_1  |                                 |___/
-service1_1  | Version: v0.1.5-alpha
-service1_1  | Git Hash: 0a4c895964296091fa4bde0cb8344f4453317704 
+service1_1  | Version: vx.x.x
+service1_1  | Git Hash: xxxxxxxxxxxxxxxxxxxxx
 service1_1  | https://github.com/alinz/baker.go
 ```
 
