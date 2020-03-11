@@ -34,7 +34,9 @@ func main() {
 		// next rule here
 	)
 
+	// initialize custim watcher
 	dockerWatcher := docker.New(docker.DefaultClient, docker.DefaultAddr)
+	// initialize engine based on watcher
 	engine := engine.New(dockerWatcher)
 
 	var server server
