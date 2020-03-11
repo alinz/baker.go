@@ -87,7 +87,7 @@ There are 3 custom labels which described all requirements:
 
 - baker.enable
 
-> containers need to explicitly say that they want to be registered at `Baker.go`
+  > containers need to explicitly say that they want to be registered at `Baker.go`
 
 - baker.network
 
