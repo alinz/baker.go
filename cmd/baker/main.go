@@ -36,8 +36,17 @@ func main() {
 
 	// initialize custim watcher
 	dockerWatcher := docker.New(docker.DefaultClient, docker.DefaultAddr)
+	err := dockerWatcher.Start()
+	if err != nil {
+		panic(err)
+	}
+
 	// initialize engine based on watcher
 	engine := engine.New(dockerWatcher)
+
+	// start the engine, if anything goes wrong, this method will
+	// panic
+	engine.Start()
 
 	var server server
 
@@ -49,7 +58,7 @@ func main() {
 		})
 	}
 
-	err := server.Start(engine)
+	err = server.Start(engine)
 	if err != nil {
 		panic(err)
 	}
