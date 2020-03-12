@@ -13,7 +13,7 @@ Baker.go is a dynamic http reverse proxy with battery included. It has docker dr
 
 # Features
 
-Baker.go was rewritten based on previous [baker](github.com/alinz/baker). The code is simpler and more easy to be modified.
+Baker.go was rewritten based on previous [baker](https://github.com/alinz/baker). The code is simpler and more easy to be modified.
 
 Heare are couple of main features of `Baker.go`:
 
