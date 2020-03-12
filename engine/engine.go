@@ -221,14 +221,24 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var handler http.Handler = httputil.NewSingleHostReverseProxy(remoteAddr)
-	for i := len(target.Config.RuleHandlers); i > 0; i-- {
-		handler = target.Config.RuleHandlers[i-1].ApplyRule(handler)
+	proxy := httputil.NewSingleHostReverseProxy(remoteAddr)
+	director := proxy.Director
+	proxy.Director = func(r *http.Request) {
+		// Need to clear URL.Path to empty as target is already known
+		// Also, NewSingleHostReverseProxy.Director's default
+		// will try to merge target.Path and r.URL.Path
+		r.URL.Path = ""
+		director(r)
+		// for some reasons, original director inside NewSingleHostReverseProxy add extra /
+		// there is no point to have that so in this section, we are removing it
+		r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
+
+		for i := 0; i < len(target.Config.RuleHandlers); i++ {
+			target.Config.RuleHandlers[i].ApplyRule(r)
+		}
 	}
 
-	// r.URL.Path = ""
-
-	handler.ServeHTTP(w, r)
+	proxy.ServeHTTP(w, r)
 }
 
 func (e *Engine) HostPolicy(ctx context.Context, host string) error {
