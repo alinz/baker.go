@@ -17,13 +17,8 @@ func (p *PathReplace) Valid() error {
 	return nil
 }
 
-func (p *PathReplace) ApplyRule(next http.Handler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Path = strings.Replace(r.URL.Path, p.Search, p.Replace, p.Times)
-		next.ServeHTTP(w, r)
-	}
-
-	return http.HandlerFunc(fn)
+func (p *PathReplace) ApplyRule(r *http.Request) {
+	r.URL.Path = strings.Replace(r.URL.Path, p.Search, p.Replace, p.Times)
 }
 
 type PathReplaceRegistry struct{}

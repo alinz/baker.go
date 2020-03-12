@@ -33,7 +33,7 @@ func Register(r ...Registrar) error {
 // to ApplyRule to incoming request
 type Handler interface {
 	Valid() error
-	ApplyRule(next http.Handler) http.Handler
+	ApplyRule(r *http.Request)
 }
 
 // Handlers is a type to implement UnmarshalJSON method
