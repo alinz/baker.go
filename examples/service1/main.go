@@ -28,9 +28,9 @@ func main() {
 					"domain": "example1.com",
 					"path": "/sample1*",
 					"ready": true,
-					"rules": [
+					"recipes": [
 						{
-							"name": "path_replace",
+							"name": "ReplacePath",
 							"config": {
 								"search": "/sample1",
 								"replace": "",

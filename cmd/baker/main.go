@@ -6,22 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/alinz/baker.go/driver/docker"
-	"github.com/alinz/baker.go/engine"
-	"github.com/alinz/baker.go/internal/acme"
-	"github.com/alinz/baker.go/pkg/logger"
-	"github.com/alinz/baker.go/pkg/rule"
+	"github.com/alinz/baker.go"
+	"github.com/alinz/baker.go/internal/logger"
 )
-
-type server interface {
-	Start(handler http.Handler) error
-}
-
-type serverFun func(handler http.Handler) error
-
-func (s serverFun) Start(handler http.Handler) error {
-	return s(handler)
-}
 
 // GitCommit will be set by build scriot
 var GitCommit string = "development"
@@ -29,36 +16,24 @@ var GitCommit string = "development"
 // Version will be set by build script and refer to tag version
 var Version string = "master"
 
-func setLogLevel(val string) {
-	var level logger.Level
-
-	switch val {
-	case "all":
-		level = logger.All
-	case "debug":
-		level = logger.Debug
-	case "info":
-		level = logger.Info
-	case "warn":
-		level = logger.Warn
-	case "error":
-		level = logger.Error
-	default:
-		level = logger.Info
-	}
-
-	logger.Default.Level(level)
-}
-
 func main() {
 	acmePath := os.Getenv("BAKER_ACME_PATH")
 	acmeEnable := strings.ToLower(os.Getenv("BAKER_ACME")) == "yes"
 	logLevel := strings.ToLower(os.Getenv("BAKER_LOG_LEVEL"))
 
-	setLogLevel(logLevel)
-
-	if acmePath == "" {
-		acmePath = "."
+	switch strings.ToUpper(logLevel) {
+	case "ALL":
+		logger.Default.Level(logger.AllLevel)
+	case "DEBUG":
+		logger.Default.Level(logger.DebugLevel)
+	case "ERROR":
+		logger.Default.Level(logger.ErrorLevel)
+	case "WARN":
+		logger.Default.Level(logger.WarnLevel)
+	case "INFO":
+		fallthrough
+	default:
+		logger.Default.Level(logger.InfoLevel)
 	}
 
 	fmt.Fprintf(os.Stdout, `
@@ -74,38 +49,23 @@ https://github.com/alinz/baker.go
 
 `, Version, GitCommit)
 
-	// register all rules
-	rule.Register(
-		&rule.PathReplaceRegistry{},
-		// next rule here
-	)
+	watcher := baker.NewDockerWatcher(baker.DefaultDockerWatcherConfig)
+	pinger := baker.NewBasePinger(watcher)
+	store := baker.NewBaseStore(pinger)
+	router := baker.NewBaseRouter(store)
 
-	// initialize custim watcher
-	dockerWatcher := docker.New(docker.DefaultClient, docker.DefaultAddr)
-	err := dockerWatcher.Start()
-	if err != nil {
-		panic(err)
-	}
+	router.AddProcessor("ReplacePath", baker.CreateProcessorPathReplace)
 
-	// initialize engine based on watcher
-	engine := engine.New(dockerWatcher)
-
-	// start the engine, if anything goes wrong, this method will
-	// panic
-	engine.Start()
-
-	var server server
+	go watcher.Start()
 
 	if acmeEnable {
-		server = acme.NewServer(engine, acmePath)
-	} else {
-		server = serverFun(func(handler http.Handler) error {
-			return http.ListenAndServe(":80", engine)
-		})
-	}
+		if acmePath == "" {
+			acmePath = "."
+		}
 
-	err = server.Start(engine)
-	if err != nil {
-		panic(err)
+		acme := baker.NewAcmeServer(router, acmePath)
+		acme.Start(router)
+	} else {
+		http.ListenAndServe(":80", router)
 	}
 }

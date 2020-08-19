@@ -9,6 +9,7 @@ services:
       - BAKER_ACME=NO
       # folder location which holds all certification
       - BAKER_ACME_PATH=/acme/cert
+      - BAKER_LOG_LEVEL=DEBUG
 
     ports:
       - '80:80'

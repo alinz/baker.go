@@ -1,12 +1,10 @@
 package store
 
-import (
-	"github.com/alinz/baker.go/internal/errors"
-)
+import "errors"
 
-const (
-	ErrItemNotFound        = errors.Value("item not found")
-	ErrItemAlreadyHasValue = errors.Value("item already has value")
+var (
+	ErrItemNotFound        = errors.New("item not found")
+	ErrItemAlreadyHasValue = errors.New("item already has value")
 )
 
 type KeyValue interface {

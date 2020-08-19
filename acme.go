@@ -1,4 +1,4 @@
-package acme
+package baker
 
 import (
 	"context"
@@ -14,8 +14,8 @@ type PolicyManager interface {
 	HostPolicy(ctx context.Context, host string) error
 }
 
-// Server contains all logic to handle both on port http and https
-type Server struct {
+// AcmeServer contains all logic to handle both on port http and https
+type AcmeServer struct {
 	httpSrv       *http.Server
 	httpsSrv      *http.Server
 	policyManager PolicyManager
@@ -25,7 +25,7 @@ type Server struct {
 // Start starts both http and https servers and initialize acme object
 // NOTE: this methid is a blocking call, either run this as last statement or
 // run it with a go command
-func (s *Server) Start(handler http.Handler) error {
+func (s *AcmeServer) Start(handler http.Handler) error {
 
 	errChan := make(chan error, 2)
 	httpCloseSignal := make(chan struct{})
@@ -42,8 +42,6 @@ func (s *Server) Start(handler http.Handler) error {
 
 		s.httpSrv.Handler = manager.HTTPHandler(nil)
 
-		// logger.Info("acme http server is started")
-
 		select {
 		case errChan <- s.httpSrv.ListenAndServe():
 			close(httpsCloseSignal)
@@ -59,8 +57,6 @@ func (s *Server) Start(handler http.Handler) error {
 
 		s.httpsSrv.TLSConfig = &tls.Config{GetCertificate: manager.GetCertificate}
 		s.httpsSrv.Handler = handler
-
-		// logger.Info("acme https server is started")
 
 		select {
 		case errChan <- s.httpsSrv.ListenAndServeTLS("", ""):
@@ -88,9 +84,9 @@ func (s *Server) Start(handler http.Handler) error {
 	}
 }
 
-// NewServer creates acme.Server
-func NewServer(policyManager PolicyManager, certPath string) *Server {
-	return &Server{
+// NewAcmeServer creates acme.Server
+func NewAcmeServer(policyManager PolicyManager, certPath string) *AcmeServer {
+	return &AcmeServer{
 		httpSrv: &http.Server{
 			Addr: ":80",
 		},
