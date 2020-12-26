@@ -54,7 +54,9 @@ https://github.com/alinz/baker.go
 	store := baker.NewBaseStore(pinger)
 	router := baker.NewBaseRouter(store)
 
-	router.AddProcessor("ReplacePath", baker.CreateProcessorPathReplace)
+	router.
+		AddProcessor("ReplacePath", baker.CreateProcessorPathReplace).
+		AddProcessor("AppendPath", baker.CreateProcessorPathAppend)
 
 	go watcher.Start()
 
