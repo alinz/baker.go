@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/http/pprof"
@@ -61,7 +60,6 @@ https://github.com/alinz/baker.go
 		AddProcessor("AppendPath", baker.CreateProcessorPathAppend)
 
 	r := http.NewServeMux()
-	r.HandleFunc("/", router.ServeHTTP)
 
 	r.HandleFunc("/debug/pprof/", pprof.Index)
 	r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
@@ -69,9 +67,12 @@ https://github.com/alinz/baker.go
 	r.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	r.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
-	simpleRouter := &SimpleRouter{
-		r: r,
-	}
+	go func() {
+		err := http.ListenAndServe(":8080", r)
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	go watcher.Start()
 
@@ -80,17 +81,9 @@ https://github.com/alinz/baker.go
 			acmePath = "."
 		}
 
-		acme := baker.NewAcmeServer(simpleRouter, acmePath)
+		acme := baker.NewAcmeServer(router, acmePath)
 		acme.Start(router)
 	} else {
-		http.ListenAndServe(":80", simpleRouter.r)
+		http.ListenAndServe(":80", router)
 	}
-}
-
-type SimpleRouter struct {
-	r http.Handler
-}
-
-func (s *SimpleRouter) HostPolicy(ctx context.Context, host string) error {
-	return nil
 }
