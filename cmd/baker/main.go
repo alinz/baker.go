@@ -1,89 +1,161 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"net/http/pprof"
 	"os"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/alinz/baker.go"
-	"github.com/alinz/baker.go/internal/logger"
+	"github.com/alinz/baker.go/docker"
+	"github.com/alinz/baker.go/middleware"
 )
 
-// GitCommit will be set by build scriot
-var GitCommit string = "development"
-
-// Version will be set by build script and refer to tag version
-var Version string = "master"
+var Version = "master"
+var GitCommit = "development"
 
 func main() {
-	acmePath := os.Getenv("BAKER_ACME_PATH")
-	acmeEnable := strings.ToLower(os.Getenv("BAKER_ACME")) == "yes"
-	logLevel := strings.ToLower(os.Getenv("BAKER_LOG_LEVEL"))
-
-	switch strings.ToUpper(logLevel) {
-	case "ALL":
-		logger.Default.Level(logger.AllLevel)
-	case "DEBUG":
-		logger.Default.Level(logger.DebugLevel)
-	case "ERROR":
-		logger.Default.Level(logger.ErrorLevel)
-	case "WARN":
-		logger.Default.Level(logger.WarnLevel)
-	case "INFO":
-		fallthrough
-	default:
-		logger.Default.Level(logger.InfoLevel)
-	}
-
 	fmt.Fprintf(os.Stdout, `
-  ____        _                                
- | __ )  __ _| | _____ _ __      __ _  ___   
- |  _ \ / _  | |/ / _ \ '__|    / _  |/ _ \  
- | |_) | (_| |   <  __/ |   _  | (_| | (_) | 
- |____/ \__,_|_|\_\___|_|  (_)  \__, |\___/  
-                                |___/
+_____       __    
+| __ )  __ _| | _____ _ __      __ _  ___
+|  _ \ / _  | |/ / _ \ '__|    / _  |/ _ \
+| |_) | (_| |   <  __/ |   _  | (_| | (_) |
+|____/ \__,_|_|\_\___|_|  (_)  \__, |\___/ 
+                               |___/
 Version: %s
 Git Hash: %s 
 https://github.com/alinz/baker.go
 
 `, Version, GitCommit)
 
-	watcher := baker.NewDockerWatcher(baker.DefaultDockerWatcherConfig)
-	pinger := baker.NewBasePinger(watcher)
-	store := baker.NewBaseStore(pinger)
-	router := baker.NewBaseRouter(store)
+	acmePath := os.Getenv("BAKER_ACME_PATH")
+	acmeEnable := strings.ToLower(os.Getenv("BAKER_ACME")) == "yes"
+	logLevel := strings.ToLower(os.Getenv("BAKER_LOG_LEVEL"))
 
-	router.
-		AddProcessor("ReplacePath", baker.CreateProcessorPathReplace).
-		AddProcessor("AppendPath", baker.CreateProcessorPathAppend)
+	errs := make(chan error, 10)
 
-	r := http.NewServeMux()
+	registry := baker.NewRegistry()
 
-	r.HandleFunc("/debug/pprof/", pprof.Index)
-	r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	r.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	r.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	r.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	watcher := docker.NewWatcher(docker.UnixClient())
+	containers := watcher.Watch(errs)
+
+	go ping(5*time.Second, containers, registry, errs)
+
+	go logError(errs)
 
 	go func() {
-		err := http.ListenAndServe(":8080", r)
-		if err != nil {
-			panic(err)
+		for {
+			<-time.After(10 * time.Second)
+			runtime.GC()
 		}
 	}()
 
-	go watcher.Start()
+	r := http.NewServeMux()
+
+	if logLevel == "debug" {
+		r.HandleFunc("/debug/pprof/", pprof.Index)
+		r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		r.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		r.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		r.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
+
+	r.Handle("/", router(registry))
 
 	if acmeEnable {
-		if acmePath == "" {
-			acmePath = "."
+		err := baker.StartAcme(r, acmePath)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		err := http.ListenAndServe(":80", r)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func logError(errs <-chan error) {
+	for err := range errs {
+		fmt.Println(err)
+	}
+}
+
+func ping(timeout time.Duration, containers <-chan baker.Container, registor baker.ContainerRegistor, errs chan<- error) {
+	containersMap := make(map[string]baker.Container)
+
+	for {
+		select {
+		case container := <-containers:
+			if container.Addr() == "" {
+				delete(containersMap, container.ID())
+				continue
+			}
+			containersMap[container.ID()] = container
+
+		case <-time.After(timeout):
+			for _, container := range containersMap {
+				fetch, ok := container.(baker.EndpointsFetcher)
+				if !ok {
+					errs <- fmt.Errorf("container %s is not EndpointFetcher", container.ID())
+					break
+				}
+
+				endpoints, err := fetch.FetchEndpoints()
+				if err != nil {
+					errs <- err
+					break
+				}
+
+				for _, endpoint := range endpoints {
+					registor.UpdateContainer(container, endpoint)
+				}
+			}
+		}
+	}
+}
+
+func router(registor baker.ContainerRegistor) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		domain := r.Host
+		path := r.URL.Path
+
+		container, endpoint := registor.FindContainer(domain, path)
+		if container == nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"error": "service is not available"}`))
+			return
 		}
 
-		acme := baker.NewAcmeServer(router, acmePath)
-		acme.Start(router)
-	} else {
-		http.ListenAndServe(":80", router)
-	}
+		proxy := &httputil.ReverseProxy{
+			Director: func(r *http.Request) {
+				r.URL.Scheme = "http"
+				r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
+				r.URL.Host = container.Addr()
+
+				if _, ok := r.Header["User-Agent"]; !ok {
+					// explicitly disable User-Agent so it's not set to default value
+					r.Header.Set("User-Agent", "")
+				}
+			},
+		}
+
+		middlewares, err := middleware.Parse(endpoint.Rules)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(struct {
+				Error string `json:"error"`
+			}{
+				Error: err.Error(),
+			})
+			return
+		}
+
+		middleware.Apply(proxy, middlewares...).ServeHTTP(w, r)
+	})
 }

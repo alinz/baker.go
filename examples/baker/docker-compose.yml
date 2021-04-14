@@ -1,4 +1,4 @@
-version: '3.5'
+version: "3.5"
 
 services:
   baker:
@@ -12,8 +12,8 @@ services:
       - BAKER_LOG_LEVEL=DEBUG
 
     ports:
-      - '80:80'
-      - '443:443'
+      - "80:80"
+      - "443:443"
 
     # make sure to use the right network
     networks:

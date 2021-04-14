@@ -28,13 +28,20 @@ func main() {
 					"domain": "example1.com",
 					"path": "/sample1*",
 					"ready": true,
-					"recipes": [
+					"rules": [
 						{
-							"name": "ReplacePath",
-							"config": {
+							"type": "PathReplace",
+							"args": {
 								"search": "/sample1",
 								"replace": "",
 								"times": 1
+							}
+						},
+						{
+							"type": "PathAppend",
+							"args": {
+								"begin": "/ali",
+								"end": "/cool"
 							}
 						}
 					]
