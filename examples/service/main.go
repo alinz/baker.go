@@ -30,7 +30,7 @@ func main() {
 					"ready": true,
 					"rules": [
 						{
-							"type": "PathReplace",
+							"type": "ReplacePath",
 							"args": {
 								"search": "/sample1",
 								"replace": "",
@@ -38,7 +38,7 @@ func main() {
 							}
 						},
 						{
-							"type": "PathAppend",
+							"type": "AppendPath",
 							"args": {
 								"begin": "/ali",
 								"end": "/cool"

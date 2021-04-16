@@ -8,14 +8,14 @@ import (
 	"github.com/alinz/baker.go"
 )
 
-type PathAppend struct {
+type AppendPath struct {
 	Begin string `json:"begin"`
 	End   string `json:"end"`
 }
 
-var _ baker.Middleware = (*PathAppend)(nil)
+var _ baker.Middleware = (*AppendPath)(nil)
 
-func (p *PathAppend) Process(next http.Handler) http.Handler {
+func (p *AppendPath) Process(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var bs strings.Builder
 
@@ -30,12 +30,12 @@ func (p *PathAppend) Process(next http.Handler) http.Handler {
 }
 
 func init() {
-	registeredMiddlewares["PathAppend"] = func(raw json.RawMessage) (baker.Middleware, error) {
-		pathAppend := &PathAppend{}
-		err := json.Unmarshal(raw, pathAppend)
+	registeredMiddlewares["AppendPath"] = func(raw json.RawMessage) (baker.Middleware, error) {
+		AppendPath := &AppendPath{}
+		err := json.Unmarshal(raw, AppendPath)
 		if err != nil {
 			return nil, err
 		}
-		return pathAppend, nil
+		return AppendPath, nil
 	}
 }

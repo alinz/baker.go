@@ -105,7 +105,7 @@ The service, should expose a REST endpoint which returns a configuration, the co
     "ready": true,
     "rules": [
       {
-        "name": "PathReplace",
+        "name": "ReplacePath",
         "config": {
           "search": "/sample1",
           "replace": "",
@@ -121,7 +121,7 @@ The service, should expose a REST endpoint which returns a configuration, the co
 
 At the moment, there are 2 middlewares provided by default
 
-### PathReplace
+### ReplacePath
 
 Remove a specific path from incoming request. Service will be receiving the modified path.
 
@@ -129,7 +129,7 @@ in order to use this middleware, simply add the following rule to rules section 
 
 ```json
 {
-  "name": "PathReplace",
+  "name": "ReplacePath",
   "config": {
     "search": "/sample1",
     "replace": "",
@@ -138,7 +138,7 @@ in order to use this middleware, simply add the following rule to rules section 
 }
 ```
 
-### PathAppend
+### AppendPath
 
 Add a path at the beginning and end of path
 
@@ -146,7 +146,7 @@ in order to use this middleware, simply add the following rule to rules section 
 
 ```json
 {
-  "name": "PathAppend",
+  "name": "AppendPath",
   "config": {
     "begin": "/begin",
     "end": "/end"
