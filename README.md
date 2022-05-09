@@ -16,7 +16,6 @@ Baker.go is a dynamic http reverse proxy designed to be highly extensible.
 - [x] Include Docker driver to listen to Docker's events
 - [x] Has exposed a driver interface which can be easily hook to other orchestration engines
 - [x] Dynamic configuration, no need to restart reverse proxy in order to change the configuration
-- [x] Uses only Standard Library
 - [x] Uses a custom trie data structure, to compute fast path pattern matching
 - [x] It can be use as library as it has implemented `http.Handler` interface
 - [x] Highly extendable as most of the components have exposed interfaces

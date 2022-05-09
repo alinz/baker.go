@@ -1,19 +1,18 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
-	"net/http/pprof"
 	"os"
 	"runtime"
 	"strings"
 	"time"
 
 	"github.com/alinz/baker.go"
-	"github.com/alinz/baker.go/docker"
-	"github.com/alinz/baker.go/middleware"
+	"github.com/alinz/baker.go/driver/docker"
+	"github.com/alinz/baker.go/pkg/acme"
+	"github.com/alinz/baker.go/pkg/log"
+	"github.com/alinz/baker.go/rule"
 )
 
 var Version = "master"
@@ -30,132 +29,70 @@ _____       __
 Version: %s
 Git Hash: %s 
 https://github.com/alinz/baker.go
-
 `, Version, GitCommit)
 
 	acmePath := os.Getenv("BAKER_ACME_PATH")
 	acmeEnable := strings.ToLower(os.Getenv("BAKER_ACME")) == "yes"
 	logLevel := strings.ToLower(os.Getenv("BAKER_LOG_LEVEL"))
 
-	errs := make(chan error, 10)
+	log.Configure(log.Config{
+		ConsoleLoggingEnabled: true,
+		FileLoggingEnabled:    true,
+		Directory:             "./logs",
+		Filename:              "baker.log",
+		Level:                 logLevel,
+	})
 
-	registry := baker.NewRegistry()
-
-	watcher := docker.NewWatcher(docker.UnixClient())
-	containers := watcher.Watch(errs)
-
-	go ping(5*time.Second, containers, registry, errs)
-
-	go logError(errs)
+	done := make(chan struct{}, 1)
+	defer close(done)
 
 	go func() {
+		bToMb := func(b uint64) uint64 {
+			return b / 1024 / 1024
+		}
+
+		if logLevel != "debug" {
+			return
+		}
+
 		for {
-			<-time.After(10 * time.Second)
-			runtime.GC()
+			select {
+			case <-done:
+				return
+			case <-time.After(10 * time.Second):
+				var m runtime.MemStats
+				runtime.ReadMemStats(&m)
+				log.
+					Debug().
+					Uint64("Alloc", bToMb(m.Alloc)).
+					Uint64("TotalAlloc", bToMb(m.TotalAlloc)).
+					Uint64("Sys", bToMb(m.Sys)).
+					Uint32("NumGC", m.NumGC).
+					Msg("memory usage")
+			}
 		}
 	}()
 
-	r := http.NewServeMux()
-
-	if logLevel == "debug" {
-		r.HandleFunc("/debug/pprof/", pprof.Index)
-		r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-		r.HandleFunc("/debug/pprof/profile", pprof.Profile)
-		r.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-		r.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	containers, err := docker.New()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to create docker driver")
 	}
 
-	r.Handle("/", router(registry))
+	baker := baker.New(
+		containers,
+		rule.RegisterAppendPath(),
+		rule.RegisterReplacePath(),
+	)
 
 	if acmeEnable {
-		err := baker.StartAcme(r, acmePath)
+		err := acme.Start(baker, acmePath)
 		if err != nil {
-			panic(err)
+			log.Fatal().Err(err).Msg("failed to start acme")
 		}
 	} else {
-		err := http.ListenAndServe(":80", r)
+		err := http.ListenAndServe(":80", baker)
 		if err != nil {
-			panic(err)
+			log.Fatal().Err(err).Msg("failed to start server")
 		}
 	}
-}
-
-func logError(errs <-chan error) {
-	for err := range errs {
-		fmt.Println(err)
-	}
-}
-
-func ping(timeout time.Duration, containers <-chan baker.Container, registor baker.ContainerRegistor, errs chan<- error) {
-	containersMap := make(map[string]baker.Container)
-
-	for {
-		select {
-		case container := <-containers:
-			if container.Addr() == "" {
-				delete(containersMap, container.ID())
-				continue
-			}
-			containersMap[container.ID()] = container
-
-		case <-time.After(timeout):
-			for _, container := range containersMap {
-				fetch, ok := container.(baker.EndpointsFetcher)
-				if !ok {
-					errs <- fmt.Errorf("container %s is not EndpointFetcher", container.ID())
-					break
-				}
-
-				endpoints, err := fetch.FetchEndpoints()
-				if err != nil {
-					errs <- err
-					break
-				}
-
-				for _, endpoint := range endpoints {
-					registor.UpdateContainer(container, endpoint)
-				}
-			}
-		}
-	}
-}
-
-func router(registor baker.ContainerRegistor) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		domain := r.Host
-		path := r.URL.Path
-
-		container, endpoint := registor.FindContainer(domain, path)
-		if container == nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte(`{"error": "service is not available"}`))
-			return
-		}
-
-		proxy := &httputil.ReverseProxy{
-			Director: func(r *http.Request) {
-				r.URL.Scheme = "http"
-				r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
-				r.URL.Host = container.Addr()
-
-				if _, ok := r.Header["User-Agent"]; !ok {
-					// explicitly disable User-Agent so it's not set to default value
-					r.Header.Set("User-Agent", "")
-				}
-			},
-		}
-
-		middlewares, err := middleware.Parse(endpoint.Rules)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(struct {
-				Error string `json:"error"`
-			}{
-				Error: err.Error(),
-			})
-			return
-		}
-
-		middleware.Apply(proxy, middlewares...).ServeHTTP(w, r)
-	})
 }

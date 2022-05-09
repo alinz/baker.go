@@ -1,0 +1,19 @@
+version: "3.5"
+
+services:
+  service1:
+    build: .
+
+    labels:
+      - "baker.enable=true"
+      - "baker.network=baker_net"
+      - "baker.service.port=8000"
+      - "baker.service.ping=/config"
+
+    networks:
+      - baker
+
+networks:
+  baker:
+    external:
+      name: baker_net      
