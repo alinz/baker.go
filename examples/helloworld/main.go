@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/alinz/baker.go/confutil"
 )
 
 func main() {
@@ -16,18 +18,9 @@ func main() {
 	})
 
 	http.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `[
-			{
-				"domain": "example.com",
-				"path": "/"
-			},
-			{
-				"domain": "example2.com",
-				"path": "/service"
-			}
-		]`)
+		var e confutil.Endpoints
+
+		e.New("example.com", "/", true).Done(w)
 	})
 
 	fmt.Printf("Starting server at port 8000\n")

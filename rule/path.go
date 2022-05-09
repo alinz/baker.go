@@ -27,11 +27,20 @@ func (p *AppendPath) Process(next http.Handler) http.Handler {
 	})
 }
 
-func NewAppendPath(begin, end string) (*AppendPath, string) {
-	return &AppendPath{
-		Begin: begin,
-		End:   end,
-	}, "AppendPath"
+func NewAppendPath(begin, end string) struct {
+	Args any    `json:"args"`
+	Type string `json:"type"`
+} {
+	return struct {
+		Args any    `json:"args"`
+		Type string `json:"type"`
+	}{
+		Type: "AppendPath",
+		Args: AppendPath{
+			Begin: begin,
+			End:   end,
+		},
+	}
 }
 
 func RegisterAppendPath() RegisterFunc {
@@ -64,12 +73,21 @@ func (p *ReplacePath) Process(next http.Handler) http.Handler {
 	})
 }
 
-func NewReplacePath(search string, replace string, times int) (*ReplacePath, string) {
-	return &ReplacePath{
-		Search:  search,
-		Replace: replace,
-		Times:   times,
-	}, "ReplacePath"
+func NewReplacePath(search string, replace string, times int) struct {
+	Args any    `json:"args"`
+	Type string `json:"type"`
+} {
+	return struct {
+		Args any    `json:"args"`
+		Type string `json:"type"`
+	}{
+		Type: "ReplacePath",
+		Args: ReplacePath{
+			Search:  search,
+			Replace: replace,
+			Times:   times,
+		},
+	}
 }
 
 func RegisterReplacePath() RegisterFunc {
