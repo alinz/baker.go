@@ -1,5 +1,5 @@
 # build stage
-FROM golang:alpine AS build-env
+FROM golang:1.18.1-alpine3.15 AS build-env
 ARG GIT_COMMIT
 ARG VERSION
 RUN apk --no-cache add build-base git mercurial gcc
