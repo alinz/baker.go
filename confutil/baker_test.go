@@ -12,18 +12,17 @@ import (
 
 func TestBakerEndpoints(t *testing.T) {
 	{
-		var endpoints confutil.Endpoints
+
 		rr := httptest.NewRecorder()
-		endpoints.
+		confutil.NewEndpoints().
 			New("example.com", "/", true).
 			Done(rr)
 		assert.JSONEq(t, `[{"domain":"example.com","path":"/","rules":null,"ready":true}]`, strings.TrimSpace(rr.Body.String()))
 	}
 
 	{
-		var endpoints confutil.Endpoints
 		rr := httptest.NewRecorder()
-		endpoints.
+		confutil.NewEndpoints().
 			New("example.com", "/", true).
 			WithRules(rule.NewAppendPath("a", "b")).
 			Done(rr)
@@ -31,9 +30,8 @@ func TestBakerEndpoints(t *testing.T) {
 	}
 
 	{
-		var endpoints confutil.Endpoints
 		rr := httptest.NewRecorder()
-		endpoints.
+		confutil.NewEndpoints().
 			New("example.com", "/", true).
 			WithRules(
 				rule.NewAppendPath("a", "b"),

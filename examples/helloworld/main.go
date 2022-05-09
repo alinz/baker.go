@@ -18,9 +18,9 @@ func main() {
 	})
 
 	http.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
-		var e confutil.Endpoints
-
-		e.New("example.com", "/", true).Done(w)
+		confutil.NewEndpoints().
+			New("example.com", "/", true).
+			Done(w)
 	})
 
 	fmt.Printf("Starting server at port 8000\n")

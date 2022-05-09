@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-type Endpoints struct {
+type endpoints struct {
 	collection []struct {
 		Domain string `json:"domain"`
 		Path   string `json:"path"`
@@ -17,7 +17,7 @@ type Endpoints struct {
 	}
 }
 
-func (e *Endpoints) New(domain, path string, ready bool) *Endpoints {
+func (e *endpoints) New(domain, path string, ready bool) *endpoints {
 	e.collection = append(e.collection, struct {
 		Domain string `json:"domain"`
 		Path   string `json:"path"`
@@ -34,10 +34,10 @@ func (e *Endpoints) New(domain, path string, ready bool) *Endpoints {
 	return e
 }
 
-func (e *Endpoints) WithRules(rules ...struct {
+func (e *endpoints) WithRules(rules ...struct {
 	Args any    `json:"args"`
 	Type string `json:"type"`
-}) *Endpoints {
+}) *endpoints {
 	if len(e.collection) == 0 {
 		return e
 	}
@@ -47,8 +47,12 @@ func (e *Endpoints) WithRules(rules ...struct {
 	return e
 }
 
-func (e *Endpoints) Done(w http.ResponseWriter) {
+func (e *endpoints) Done(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(e.collection)
+}
+
+func NewEndpoints() *endpoints {
+	return &endpoints{}
 }
