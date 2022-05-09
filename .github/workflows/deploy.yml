@@ -2,7 +2,7 @@ name: Baker.go
 on:
   push:
     tags:
-    - 'v*'
+      - "v*"
 
 jobs:
   build:
@@ -20,8 +20,6 @@ jobs:
         run: |
           GIT_COMMIT=$(git rev-list -1 HEAD)
           VERSION=${{ steps.tag_version.outputs.VERSION }}
-          
-          go test ./... -v
 
           docker build --build-arg GIT_COMMIT=$GIT_COMMIT --build-arg VERSION=$VERSION -t alinz/baker.go:$VERSION .
           docker build --build-arg GIT_COMMIT=$GIT_COMMIT --build-arg VERSION=$VERSION -t alinz/baker.go:latest .

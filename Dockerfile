@@ -8,6 +8,8 @@ WORKDIR /baker
 
 COPY . .
 
+RUN go test ./... -v
+
 RUN go build -ldflags "-X main.GitCommit=${GIT_COMMIT} -X main.Version=${VERSION}" -o server ./cmd/baker/main.go
 
 # final stage
