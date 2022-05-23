@@ -9,76 +9,110 @@ import (
 
 func TestPathTrie(t *testing.T) {
 
+	type Query struct {
+		path  string
+		found bool
+	}
+
 	testCases := []struct {
-		paths  [][]rune
-		search []rune
-		ok     bool
+		paths   []string
+		queries []Query
 	}{
 		{
-			paths: [][]rune{
-				[]rune("/a"),
+			paths: []string{
+				"/a",
 			},
-			search: []rune("/a"),
-			ok:     true,
+			queries: []Query{
+				{
+					path:  "/a",
+					found: true,
+				},
+			},
 		},
 		{
-			paths: [][]rune{
-				[]rune("/a"),
-				[]rune("/a/*"),
+			paths: []string{
+				"/a",
+				"/a/*",
 			},
-			search: []rune("/a"),
-			ok:     true,
+			queries: []Query{
+				{
+					path:  "/a",
+					found: true,
+				},
+			},
 		},
 		{
-			paths: [][]rune{
-				[]rune("/a"),
-				[]rune("/a/*"),
+			paths: []string{
+				"/a",
+				"/a/*",
 			},
-			search: []rune("/a/1"),
-			ok:     true,
+			queries: []Query{
+				{
+					path:  "/a/1",
+					found: true,
+				},
+			},
 		},
 		{
-			paths: [][]rune{
-				[]rune("/a"),
-				[]rune("/a/*"),
+			paths: []string{
+				"/a",
+				"/a/*",
 			},
-			search: []rune("/a/1/"),
-			ok:     false,
+			queries: []Query{
+				{
+					path:  "/a/1/",
+					found: false,
+				},
+			},
 		},
 		{
-			paths: [][]rune{
-				[]rune("/a"),
-				[]rune("/a/*"),
-				[]rune("/a/*/b"),
+			paths: []string{
+				"/a",
+				"/a/*",
+				"/a/*/b",
 			},
-			search: []rune("/a/1/b"),
-			ok:     true,
+			queries: []Query{
+				{
+					path:  "/a/1/b",
+					found: true,
+				},
+			},
 		},
 		{
-			paths: [][]rune{
-				[]rune("/a/*"),
-				[]rune("/a/*/b"),
+			paths: []string{
+				"/a/*",
+				"/a/*/b",
 			},
-			search: []rune("/a/1"),
-			ok:     true,
+			queries: []Query{
+				{
+					path:  "/a/1",
+					found: true,
+				},
+			},
 		},
 		{
-			paths: [][]rune{
-				[]rune("/a/*"),
-				[]rune("/a/*/b"),
+			paths: []string{
+				"/a/*",
+				"/a/*/b",
 			},
-			search: []rune("/a/"),
-			ok:     false,
+			queries: []Query{
+				{
+					path:  "/a/",
+					found: false,
+				},
+			},
 		},
 	}
 
 	for _, tc := range testCases {
 		pt := collection.NewTrie[bool]()
 		for _, path := range tc.paths {
-			pt.Put(path, true)
+			pt.Put([]rune(path), true)
 		}
 
-		_, ok := pt.Get(tc.search)
-		assert.Equal(t, tc.ok, ok)
+		for _, query := range tc.queries {
+			_, ok := pt.Get([]rune(query.path))
+			assert.Equal(t, query.found, ok)
+		}
 	}
 }
