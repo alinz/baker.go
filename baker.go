@@ -88,6 +88,13 @@ type Service struct {
 }
 
 func (s *Service) Add(container *Container, endpoint *Endpoint) {
+	if !s.containers.Contains(container.ID) {
+		log.Info().
+			Str("id", container.ID).
+			Str("domain", endpoint.Domain).
+			Str("path", endpoint.Path).
+			Msg("a new container is added")
+	}
 	s.containers.Put(container.ID, &value{
 		container: container,
 		endpoint:  endpoint,
@@ -95,6 +102,15 @@ func (s *Service) Add(container *Container, endpoint *Endpoint) {
 }
 
 func (s *Service) Remove(container *Container) {
+	value, ok := s.containers.Get(container.ID)
+	if ok {
+		log.Info().
+			Str("id", container.ID).
+			Str("domain", value.endpoint.Domain).
+			Str("path", value.endpoint.Path).
+			Msg("an exisiting container is removed")
+	}
+
 	s.containers.Remove(container.ID)
 }
 
