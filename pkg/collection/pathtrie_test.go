@@ -27,6 +27,22 @@ func TestPathTrie(t *testing.T) {
 					path:  "/a",
 					found: true,
 				},
+				{
+					path:  "/a/",
+					found: false,
+				},
+				{
+					path:  "/a/1",
+					found: false,
+				},
+				{
+					path:  "/a/aa",
+					found: false,
+				},
+				{
+					path:  "/aa/",
+					found: false,
+				},
 			},
 		},
 		{
@@ -39,26 +55,10 @@ func TestPathTrie(t *testing.T) {
 					path:  "/a",
 					found: true,
 				},
-			},
-		},
-		{
-			paths: []string{
-				"/a",
-				"/a/*",
-			},
-			queries: []Query{
 				{
 					path:  "/a/1",
 					found: true,
 				},
-			},
-		},
-		{
-			paths: []string{
-				"/a",
-				"/a/*",
-			},
-			queries: []Query{
 				{
 					path:  "/a/1/",
 					found: false,
@@ -88,14 +88,6 @@ func TestPathTrie(t *testing.T) {
 					path:  "/a/1",
 					found: true,
 				},
-			},
-		},
-		{
-			paths: []string{
-				"/a/*",
-				"/a/*/b",
-			},
-			queries: []Query{
 				{
 					path:  "/a/",
 					found: false,
