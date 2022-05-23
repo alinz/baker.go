@@ -48,7 +48,7 @@ func TestPathTrie(t *testing.T) {
 		{
 			paths: []string{
 				"/a",
-				"/a/*",
+				"/a/+",
 			},
 			queries: []Query{
 				{
@@ -68,8 +68,8 @@ func TestPathTrie(t *testing.T) {
 		{
 			paths: []string{
 				"/a",
-				"/a/*",
-				"/a/*/b",
+				"/a/+",
+				"/a/+/b",
 			},
 			queries: []Query{
 				{
@@ -80,8 +80,8 @@ func TestPathTrie(t *testing.T) {
 		},
 		{
 			paths: []string{
-				"/a/*",
-				"/a/*/b",
+				"/a/+",
+				"/a/+/b",
 			},
 			queries: []Query{
 				{
@@ -94,9 +94,58 @@ func TestPathTrie(t *testing.T) {
 				},
 			},
 		},
+		{
+			paths: []string{
+				"/a/*",
+			},
+			queries: []Query{
+				{
+					path:  "/a/1",
+					found: true,
+				},
+				{
+					path:  "/a/",
+					found: true,
+				},
+			},
+		},
+		{
+			paths: []string{
+				"/a*",
+			},
+			queries: []Query{
+				{
+					path:  "/a/1",
+					found: true,
+				},
+				{
+					path:  "/a/",
+					found: true,
+				},
+			},
+		},
+		{
+			paths: []string{
+				"/a/+/b*",
+			},
+			queries: []Query{
+				{
+					path:  "/a/123/b",
+					found: true,
+				},
+				{
+					path:  "/a/123/b/",
+					found: true,
+				},
+				{
+					path:  "/a/123/b/1234",
+					found: true,
+				},
+			},
+		},
 	}
 
-	for _, tc := range testCases {
+	for i, tc := range testCases {
 		pt := collection.NewTrie[bool]()
 		for _, path := range tc.paths {
 			pt.Put([]rune(path), true)
@@ -104,7 +153,7 @@ func TestPathTrie(t *testing.T) {
 
 		for _, query := range tc.queries {
 			_, ok := pt.Get([]rune(query.path))
-			assert.Equal(t, query.found, ok)
+			assert.Equal(t, query.found, ok, "test case: %d, path: %s", i+1, query.path)
 		}
 	}
 }

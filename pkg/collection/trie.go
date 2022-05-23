@@ -1,6 +1,7 @@
 package collection
 
 const (
+	plus rune = '+'
 	wild rune = '*'
 	path rune = '/'
 )
@@ -43,15 +44,15 @@ func (t *Trie[T]) Put(key []rune, val T) {
 func (t *Trie[T]) Get(key []rune) (found T, ok bool) {
 	current := t
 	i := 0
-	isWild := false
+	isPlus := false
 
 	for i < len(key) {
 		r := key[i]
 		if r == path {
-			isWild = false
+			isPlus = false
 		}
 
-		if isWild {
+		if isPlus {
 			i++
 			continue
 		}
@@ -59,14 +60,25 @@ func (t *Trie[T]) Get(key []rune) (found T, ok bool) {
 		next, ok := current.children[r]
 		if !ok {
 			next, ok = current.children[wild]
+			if ok {
+				current = next
+				break
+			}
+
+			next, ok = current.children[plus]
 			if !ok {
 				return found, false
 			}
-			isWild = true
+			isPlus = true
 		}
 
 		current = next
 		i++
+	}
+
+	// need to check if the last node is a wildcard
+	if next, ok := current.children[wild]; ok {
+		current = next
 	}
 
 	if current.val == nil {
