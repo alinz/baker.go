@@ -157,3 +157,20 @@ func TestPathTrie(t *testing.T) {
 		}
 	}
 }
+
+func TestMulti(t *testing.T) {
+	pt := collection.NewTrie[int]()
+
+	for i := 0; i < 10; i++ {
+		pt.Put([]rune("/*"), 1)
+		pt.Put([]rune("/rpc/*"), 2)
+
+		value, ok := pt.Get([]rune("/manifest.json"))
+		assert.True(t, ok)
+		assert.Equal(t, 1, value)
+
+		value, ok = pt.Get([]rune("/rpc/UserCommand/AutoLogin"))
+		assert.True(t, ok)
+		assert.Equal(t, 2, value)
+	}
+}

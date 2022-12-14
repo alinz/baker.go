@@ -36,11 +36,17 @@ type Container struct {
 var emptyPaths = NewPaths()
 var emptyService = NewService()
 
-type domains struct {
+type Domains struct {
 	paths *collection.Map[*Paths]
 }
 
-func (d *domains) Paths(domain string, insert bool) *Paths {
+func NewDomains() *Domains {
+	return &Domains{
+		paths: collection.NewMap[*Paths](),
+	}
+}
+
+func (d *Domains) Paths(domain string, insert bool) *Paths {
 	if p, ok := d.paths.Get(domain); ok {
 		return p
 	} else if !insert {
@@ -54,27 +60,38 @@ func (d *domains) Paths(domain string, insert bool) *Paths {
 }
 
 type Paths struct {
-	services *collection.Trie[*Service]
+	services       *collection.Trie[*Service]
+	registeredPath *collection.Map[*Service]
 }
 
 func (p *Paths) Service(path string, insert bool) *Service {
 	runePath := []rune(path)
 
-	if s, ok := p.services.Get(runePath); ok {
+	if insert {
+		s, ok := p.registeredPath.Get(path)
+		if ok {
+			return s
+		}
+
+		s = NewService()
+		p.services.Put(runePath, s)
+		p.registeredPath.Put(path, s)
+
 		return s
-	} else if !insert {
-		return emptyService
 	}
 
-	s := NewService()
-	p.services.Put(runePath, s)
+	s, ok := p.services.Get(runePath)
+	if !ok {
+		return emptyService
+	}
 
 	return s
 }
 
 func NewPaths() *Paths {
 	return &Paths{
-		services: collection.NewTrie[*Service](),
+		services:       collection.NewTrie[*Service](),
+		registeredPath: collection.NewMap[*Service](),
 	}
 }
 
@@ -129,7 +146,7 @@ func NewService() *Service {
 }
 
 type Server struct {
-	domains    *domains
+	domains    *Domains
 	rules      map[string]rule.BuilderFunc
 	containers *collection.Set[string, *Container]
 	done       chan struct{}
@@ -285,9 +302,7 @@ func (s *Server) apply(next http.Handler, rules ...rule.Middleware) http.Handler
 
 func New(containers <-chan *Container, rules ...rule.RegisterFunc) *Server {
 	s := &Server{
-		domains: &domains{
-			paths: collection.NewMap[*Paths](),
-		},
+		domains:    NewDomains(),
 		rules:      make(map[string]rule.BuilderFunc),
 		containers: collection.NewSet[string, *Container](),
 		done:       make(chan struct{}, 1),
