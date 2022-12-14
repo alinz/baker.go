@@ -198,8 +198,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	domain := r.Host
 	path := r.URL.Path
 
+	log.Debug().Str("domain", domain).Str("path", path).Msg("a request received")
+
 	container, endpoint, ok := s.domains.Paths(domain, false).Service(path, false).Select()
 	if !ok {
+		log.Debug().Str("domain", domain).Str("path", path).Msg("not found")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		w.Write([]byte(`{"error": "service is not available"}`))
 		return
@@ -207,6 +210,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	proxy := &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
+			log.Debug().
+				Str("domain", domain).
+				Str("path", r.URL.Path).
+				Str("old_schema", r.URL.Scheme).
+				Str("new_schema", "http").
+				Str("new_path", strings.TrimSuffix(r.URL.Path, "/")).
+				Str("old_host", r.URL.Host).
+				Str("new_host", container.Addr.String()).
+				Msg("changing request prior to send")
+
 			r.URL.Scheme = "http"
 			r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
 			r.URL.Host = container.Addr.String()
@@ -229,6 +242,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.
+		Debug().
+		Str("domain", domain).
+		Str("path", path).
+		Str("container_id", container.ID).
+		Msg("routing to the container")
 	s.apply(proxy, rules...).ServeHTTP(w, r)
 }
 
@@ -288,8 +307,10 @@ func New(containers <-chan *Container, rules ...rule.RegisterFunc) *Server {
 				return
 			case container := <-containers:
 				if container.Addr.IsValid() {
+					log.Debug().Str("container_id", container.ID).Msg("adding to the container list")
 					s.containers.Put(container.ID, container)
 				} else {
+					log.Debug().Str("container_id", container.ID).Msg("removing from the container list")
 					s.containers.Remove(container.ID)
 
 					value, ok := s.refMap.Get(container.ID)
