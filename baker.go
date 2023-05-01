@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/netip"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/alinz/baker.go/pkg/collection"
@@ -226,25 +226,19 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	proxy := &httputil.ReverseProxy{
-		Director: func(r *http.Request) {
-			log.Debug().
-				Str("domain", domain).
-				Str("path", r.URL.Path).
-				Str("old_schema", r.URL.Scheme).
-				Str("new_schema", "http").
-				Str("new_path", strings.TrimSuffix(r.URL.Path, "/")).
-				Str("old_host", r.URL.Host).
-				Str("new_host", container.Addr.String()).
-				Msg("changing request prior to send")
-
-			r.URL.Scheme = "http"
-			r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
-			r.URL.Host = container.Addr.String()
-
-			if _, ok := r.Header["User-Agent"]; !ok {
-				// explicitly disable User-Agent so it's not set to default value
-				r.Header.Set("User-Agent", "")
+		Rewrite: func(r *httputil.ProxyRequest) {
+			url := &url.URL{
+				Scheme: "http",
+				Host:   container.Addr.String(),
 			}
+
+			log.Debug().
+				Str("recv_from", r.In.URL.String()).
+				Str("send_to", url.String()).
+				Msg("rewriting url")
+
+			r.SetURL(url)     // Forward request to outboundURL.
+			r.SetXForwarded() // Set X-Forwarded-* headers.
 		},
 	}
 
