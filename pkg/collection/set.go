@@ -10,6 +10,12 @@ type Set[K comparable, V any] struct {
 	mapper map[K]V
 }
 
+func (s *Set[K, V]) Len() int {
+	s.rw.RLock()
+	defer s.rw.RUnlock()
+	return len(s.mapper)
+}
+
 func (s *Set[K, V]) Put(key K, val V) {
 	s.rw.Lock()
 	defer s.rw.Unlock()
@@ -23,10 +29,11 @@ func (s *Set[K, V]) Get(key K) (val V, ok bool) {
 	return
 }
 
-func (s *Set[K, V]) Remove(key K) {
+func (s *Set[K, V]) Remove(key K) (remaining int) {
 	s.rw.Lock()
 	defer s.rw.Unlock()
 	delete(s.mapper, key)
+	return len(s.mapper)
 }
 
 func (s *Set[K, V]) Contains(key K) bool {

@@ -80,8 +80,12 @@ https://github.com/alinz/baker.go
 
 	baker := baker.New(
 		containers,
-		rule.RegisterAppendPath(),
-		rule.RegisterReplacePath(),
+		baker.WithPingDuration(10*time.Second),
+		baker.WithRules(
+			rule.RegisterAppendPath(),
+			rule.RegisterReplacePath(),
+			rule.RegisterRateLimiter(),
+		),
 	)
 
 	if acmeEnable {

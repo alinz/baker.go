@@ -1,9 +1,15 @@
 package baker_test
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/alinz/baker.go"
+	"github.com/alinz/baker.go/confutil"
+	"github.com/alinz/baker.go/rule"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,4 +46,38 @@ func TestDomains(t *testing.T) {
 		assert.Equal(t, container1, container)
 		assert.Equal(t, endpoint1, endpoint)
 	}
+}
+
+func TestBaker(t *testing.T) {
+	containers := MockDriver(t, confutil.NewEndpoints().New("example.com", "/*", true))
+
+	baker := baker.New(
+		containers,
+		baker.WithPingDuration(2*time.Second),
+		baker.WithRules(
+			rule.RegisterAppendPath(),
+			rule.RegisterReplacePath(),
+			rule.RegisterRateLimiter(),
+		),
+	)
+
+	s := httptest.NewServer(baker)
+	t.Cleanup(s.Close)
+
+	time.Sleep(3 * time.Second)
+
+	httpClient := http.Client{}
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/manifest.json", s.URL), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Host = "example.com"
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }

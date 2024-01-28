@@ -7,6 +7,7 @@ import (
 	"net/http/httputil"
 	"net/netip"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/alinz/baker.go/pkg/collection"
@@ -25,6 +26,15 @@ type Endpoint struct {
 	Path   string `json:"path"`
 	Rules  []Rule `json:"rules"`
 	Ready  bool   `json:"ready"`
+}
+
+func (e *Endpoint) getHashKey() string {
+	var sb strings.Builder
+
+	sb.WriteString(e.Domain)
+	sb.WriteString(e.Path)
+
+	return sb.String()
 }
 
 type Container struct {
@@ -118,7 +128,7 @@ func (s *Service) Add(container *Container, endpoint *Endpoint) {
 	})
 }
 
-func (s *Service) Remove(container *Container) {
+func (s *Service) Remove(container *Container) int {
 	value, ok := s.containers.Get(container.ID)
 	if ok {
 		log.Info().
@@ -128,7 +138,7 @@ func (s *Service) Remove(container *Container) {
 			Msg("an exisiting container is removed")
 	}
 
-	s.containers.Remove(container.ID)
+	return s.containers.Remove(container.ID)
 }
 
 func (s *Service) Select() (*Container, *Endpoint, bool) {
@@ -146,12 +156,14 @@ func NewService() *Service {
 }
 
 type Server struct {
-	domains    *Domains
-	rules      map[string]rule.BuilderFunc
-	containers *collection.Set[string, *Container]
-	done       chan struct{}
-	http       httpclient.GetterFunc
-	refMap     *collection.Map[*value]
+	domains            *Domains
+	rules              map[string]rule.BuilderFunc
+	pingDuration       time.Duration
+	containers         *collection.Set[string, *Container]
+	done               chan struct{}
+	http               httpclient.GetterFunc
+	refMap             *collection.Map[*value]
+	middlewareCacheMap *collection.Map[rule.Middleware]
 }
 
 var _ http.Handler = &Server{}
@@ -161,7 +173,7 @@ func (s *Server) pinger() {
 		select {
 		case <-s.done:
 			return
-		case <-time.After(10 * time.Second):
+		case <-time.After(s.pingDuration):
 			s.containers.Iterate(func(id string, container *Container) bool {
 				configPath := fmt.Sprintf("http://%s%s", container.Addr, container.Path)
 				body, err := s.http(configPath)
@@ -242,7 +254,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	rules, err := s.getMiddlewares(endpoint.Rules)
+	rules, err := s.getMiddlewares(endpoint)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(struct {
@@ -262,22 +274,38 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.apply(proxy, rules...).ServeHTTP(w, r)
 }
 
-func (s *Server) getMiddlewares(rules []Rule) ([]rule.Middleware, error) {
-	if len(rules) == 0 {
+func (s *Server) getMiddlewares(endpoint *Endpoint) ([]rule.Middleware, error) {
+	if len(endpoint.Rules) == 0 {
 		return rule.Empty, nil
 	}
 
 	middlewares := make([]rule.Middleware, 0)
 
-	for _, rule := range rules {
-		builder, ok := s.rules[rule.Type]
+	for _, r := range endpoint.Rules {
+		builder, ok := s.rules[r.Type]
 		if !ok {
-			return nil, fmt.Errorf("failed to find rule builder for %s", rule.Type)
+			return nil, fmt.Errorf("failed to find rule builder for %s", r.Type)
 		}
 
-		middleware, err := builder(rule.Args)
+		middleware, err := builder(r.Args)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse args for rule %s: %w", rule.Type, err)
+			return nil, fmt.Errorf("failed to parse args for rule %s: %w", r.Type, err)
+		}
+
+		if middleware.IsCachable() {
+			middleware = s.middlewareCacheMap.GetAndUpdate(endpoint.getHashKey(), func(old rule.Middleware, found bool) rule.Middleware {
+				// NOTE: the reason we are doing this is because we want to update the middleware
+				// and we don;t want to recreate some internal state of the middleware over and over
+				// The responsibility of initializing the internal state of middleware is on the
+				// UpdateMiddleware method.
+				var current rule.Middleware
+				if found {
+					current = old
+				} else {
+					current = middleware
+				}
+				return current.UpdateMiddelware(middleware)
+			})
 		}
 
 		middlewares = append(middlewares, middleware)
@@ -294,18 +322,46 @@ func (s *Server) apply(next http.Handler, rules ...rule.Middleware) http.Handler
 	return next
 }
 
-func New(containers <-chan *Container, rules ...rule.RegisterFunc) *Server {
-	s := &Server{
-		domains:    NewDomains(),
-		rules:      make(map[string]rule.BuilderFunc),
-		containers: collection.NewSet[string, *Container](),
-		done:       make(chan struct{}, 1),
-		http:       httpclient.New(),
-		refMap:     collection.NewMap[*value](),
+type bakerOption struct {
+	rules        map[string]rule.BuilderFunc
+	pingDuration time.Duration
+}
+
+type bakerOptionFunc func(*bakerOption)
+
+func WithPingDuration(d time.Duration) bakerOptionFunc {
+	return func(o *bakerOption) {
+		o.pingDuration = d
+	}
+}
+
+func WithRules(rules ...rule.RegisterFunc) bakerOptionFunc {
+	return func(o *bakerOption) {
+		for _, rule := range rules {
+			rule(o.rules)
+		}
+	}
+}
+
+func New(containers <-chan *Container, optFuncs ...bakerOptionFunc) *Server {
+	opt := &bakerOption{
+		rules:        make(map[string]rule.BuilderFunc),
+		pingDuration: 10 * time.Second,
 	}
 
-	for _, rule := range rules {
-		rule(s.rules)
+	for _, optFunc := range optFuncs {
+		optFunc(opt)
+	}
+
+	s := &Server{
+		domains:            NewDomains(),
+		rules:              opt.rules,
+		pingDuration:       opt.pingDuration,
+		containers:         collection.NewSet[string, *Container](),
+		done:               make(chan struct{}, 1),
+		http:               httpclient.New(),
+		refMap:             collection.NewMap[*value](),
+		middlewareCacheMap: collection.NewMap[rule.Middleware](),
 	}
 
 	go s.pinger()
@@ -333,10 +389,16 @@ func New(containers <-chan *Container, rules ...rule.RegisterFunc) *Server {
 
 					s.refMap.Delete(container.ID)
 
-					s.domains.
+					remaining := s.domains.
 						Paths(value.endpoint.Domain, false).
 						Service(value.endpoint.Path, false).
 						Remove(value.container)
+
+					// NOTE: if there is no more containers for this endpoint
+					// we can remove the middleware from the cache
+					if remaining == 0 {
+						s.middlewareCacheMap.Delete(value.endpoint.getHashKey())
+					}
 				}
 			}
 		}
