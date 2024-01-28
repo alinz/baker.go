@@ -9,23 +9,24 @@
 
 # Introduction
 
-Baker.go is a dynamic http reverse proxy designed to be highly extensible.
+Baker.go is a dynamic HTTP reverse proxy designed to be highly extensible.
 
 # Features
 
 - [x] Include Docker driver to listen to Docker's events
-- [x] Has exposed a driver interface which can be easily hook to other orchestration engines
-- [x] Dynamic configuration, no need to restart reverse proxy in order to change the configuration
+- [x] Has exposed a driver interface that can be easily hooked to other orchestration engines
+- [x] Dynamic configuration, no need to restart reverse proxy to change the configuration
 - [x] Uses a custom trie data structure, to compute fast path pattern matching
-- [x] It can be use as library as it has implemented `http.Handler` interface
+- [x] It can be used as a library as it has implemented HTTP`.`Handler` interface
 - [x] Highly extendable as most of the components have exposed interfaces
-- [x] Middleware like feature to change the incoming and outgoing traffics
+- [x] Middleware-like feature to change the incoming and outgoing traffic
 - [x] load balancing by default
 - [x] Automatically updates and creates SSL certificates using `Let's Encrypt`
+- [x] Configurable Rate Limiter per Domain and Path
 
 # Usage
 
-First we need to run Baker inside docker. The following `docker-compose.yml`
+First, we need to run Baker inside docker. The following `docker-compose.yml`
 
 ```yml
 version: "3.5"
@@ -60,7 +61,7 @@ networks:
     driver: bridge
 ```
 
-Then for each service, a following `docker-compose` can be used. The only requirements is labels and networks. Make sure both baker and service has the same network interface
+Then for each service, the following `docker-compose` can be used. The only requirements are labels and networks. Make sure both baker and service have the same network interface
 
 ```yml
 version: "3.5"
@@ -84,7 +85,7 @@ networks:
       name: baker_net
 ```
 
-The service, should expose a REST endpoint which returns a configuration, the configuration endpoint act as a health check and providing realtime configuration:
+The service should expose a REST endpoint that returns a configuration, the configuration endpoint acts as a health check and provides real-time configuration:
 
 ```json
 [
@@ -104,8 +105,8 @@ The service, should expose a REST endpoint which returns a configuration, the co
     "ready": true,
     "rules": [
       {
-        "name": "ReplacePath",
-        "config": {
+        "type": "ReplacePath",
+        "args": {
           "search": "/sample1",
           "replace": "",
           "times": 1
@@ -122,14 +123,13 @@ At the moment, there are 2 middlewares provided by default
 
 ### ReplacePath
 
-Remove a specific path from incoming request. Service will be receiving the modified path.
-
-in order to use this middleware, simply add the following rule to rules section of the configuration
+Remove a specific path from an incoming request. Service will be receiving the modified path.
+to use this middleware, simply add the following rule to the rules section of the configuration
 
 ```json
 {
-  "name": "ReplacePath",
-  "config": {
+  "type": "ReplacePath",
+  "args": {
     "search": "/sample1",
     "replace": "",
     "times": 1
@@ -139,16 +139,32 @@ in order to use this middleware, simply add the following rule to rules section 
 
 ### AppendPath
 
-Add a path at the beginning and end of path
-
-in order to use this middleware, simply add the following rule to rules section of the configuration
+Add a path at the beginning and end of the path
+to use this middleware, simply add the following rule to the rules section of the configuration
 
 ```json
 {
-  "name": "AppendPath",
-  "config": {
+  "type": "AppendPath",
+  "args": {
     "begin": "/begin",
     "end": "/end"
   }
 }
 ```
+
+### RateLimiter
+
+Add a rate limiter for a specific domain and path
+to use this middleware, simply add the following rule to the riles sections of the configuration
+
+```json
+{
+  "type": "RateLimiter",
+  "args": {
+    "request_limit": 100,
+    "window_duration": "60s"
+  }
+}
+```
+
+the above configuration means, in each 1 min, 100 request should be routed per individual IP address

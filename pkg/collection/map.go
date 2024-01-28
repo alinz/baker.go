@@ -36,6 +36,17 @@ func (m *Map[T]) Delete(key string) {
 	delete(m.collection, key)
 }
 
+func (m *Map[T]) GetAndUpdate(key string, update func(old T, found bool) T) (val T) {
+	m.rw.Lock()
+	defer m.rw.Unlock()
+
+	val, found := m.collection[key]
+	val = update(val, found)
+	m.collection[key] = val
+
+	return
+}
+
 func NewMap[T any]() *Map[T] {
 	return &Map[T]{
 		collection: make(map[string]T),

@@ -10,8 +10,8 @@ type endpoints struct {
 		Domain string `json:"domain"`
 		Path   string `json:"path"`
 		Rule   []struct {
-			Args any    `json:"args"`
 			Type string `json:"type"`
+			Args any    `json:"args"`
 		} `json:"rules"`
 		Ready bool `json:"ready"`
 	}
@@ -22,8 +22,8 @@ func (e *endpoints) New(domain, path string, ready bool) *endpoints {
 		Domain string `json:"domain"`
 		Path   string `json:"path"`
 		Rule   []struct {
-			Args any    `json:"args"`
 			Type string `json:"type"`
+			Args any    `json:"args"`
 		} `json:"rules"`
 		Ready bool `json:"ready"`
 	}{
@@ -35,8 +35,8 @@ func (e *endpoints) New(domain, path string, ready bool) *endpoints {
 }
 
 func (e *endpoints) WithRules(rules ...struct {
-	Args any    `json:"args"`
 	Type string `json:"type"`
+	Args any    `json:"args"`
 }) *endpoints {
 	if len(e.collection) == 0 {
 		return e
@@ -47,7 +47,7 @@ func (e *endpoints) WithRules(rules ...struct {
 	return e
 }
 
-func (e *endpoints) Done(w http.ResponseWriter) {
+func (e *endpoints) WriteResponse(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(e.collection)

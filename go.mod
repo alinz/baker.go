@@ -1,8 +1,9 @@
 module github.com/alinz/baker.go
 
-go 1.20
+go 1.21
 
 require (
+	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/rs/zerolog v1.26.1
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20211215165025-cf75a172585e

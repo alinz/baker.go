@@ -7,6 +7,8 @@ import (
 
 type Middleware interface {
 	Process(next http.Handler) http.Handler
+	IsCachable() bool
+	UpdateMiddelware(newImpl Middleware) Middleware
 }
 
 type BuilderFunc func(raw json.RawMessage) (Middleware, error)
