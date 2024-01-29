@@ -48,6 +48,17 @@ func (r *RateLimiter) IsCachable() bool {
 }
 
 func (r *RateLimiter) UpdateMiddelware(newImpl Middleware) Middleware {
+	if newImpl == nil {
+		log.Debug().
+			Str("type", "RateLimiter").
+			Int("request_limit", r.RequestLimit).
+			Dur("window_duration", r.WindowDuration.Duration).
+			Msg("initializing for the first time")
+
+		r.middle = rate.LimitByIP(r.RequestLimit, r.WindowDuration.Duration)
+		return r
+	}
+
 	newR, ok := newImpl.(*RateLimiter)
 	if !ok {
 		log.Error().
@@ -56,23 +67,18 @@ func (r *RateLimiter) UpdateMiddelware(newImpl Middleware) Middleware {
 		return r
 	}
 
-	if r != nil {
-		if r.RequestLimit != newR.RequestLimit ||
-			r.WindowDuration != newR.WindowDuration {
-			log.Warn().
-				Str("type", "RateLimiter").
-				Int("request_limit", r.RequestLimit).
-				Dur("window_duration", r.WindowDuration.Duration).
-				Msg("middleware is already initialized with different values")
-		}
-		return r
-	}
-
 	if r.RequestLimit == newR.RequestLimit &&
 		r.WindowDuration == newR.WindowDuration &&
 		r.middle != nil {
 		return r
 	}
+
+	log.
+		Debug().
+		Str("type", "RateLimiter").
+		Int("request_limit", r.RequestLimit).
+		Dur("window_duration", r.WindowDuration.Duration).
+		Msg("updating middleware")
 
 	r.RequestLimit = newR.RequestLimit
 	r.WindowDuration = newR.WindowDuration
@@ -83,9 +89,7 @@ func (r *RateLimiter) UpdateMiddelware(newImpl Middleware) Middleware {
 }
 
 func (r *RateLimiter) Process(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r)
-	})
+	return r.middle(next)
 }
 
 func NewRateLimiter(requestLimit int, windowDuration time.Duration) struct {

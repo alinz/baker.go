@@ -6,6 +6,7 @@ import (
 )
 
 type endpoints struct {
+	cahced     []byte
 	collection []struct {
 		Domain string `json:"domain"`
 		Path   string `json:"path"`
@@ -47,9 +48,20 @@ func (e *endpoints) WithRules(rules ...struct {
 	return e
 }
 
+// CacheResponse caches the response and this can be used to optimize the response
+// If you call this method, the next call should be WriteResponse
+func (e *endpoints) CacheResponse() *endpoints {
+	e.cahced, _ = json.Marshal(e.collection)
+	return e
+}
+
 func (e *endpoints) WriteResponse(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	if len(e.cahced) > 0 {
+		w.Write(e.cahced)
+		return
+	}
 	json.NewEncoder(w).Encode(e.collection)
 }
 

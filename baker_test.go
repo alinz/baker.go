@@ -2,8 +2,8 @@ package baker_test
 
 import (
 	"fmt"
+	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -48,36 +48,88 @@ func TestDomains(t *testing.T) {
 	}
 }
 
-func TestBaker(t *testing.T) {
-	containers := MockDriver(t, confutil.NewEndpoints().New("example.com", "/*", true))
-
-	baker := baker.New(
-		containers,
-		baker.WithPingDuration(2*time.Second),
-		baker.WithRules(
-			rule.RegisterAppendPath(),
-			rule.RegisterReplacePath(),
-			rule.RegisterRateLimiter(),
+func TestBasicBaker(t *testing.T) {
+	configs := []interface {
+		WriteResponse(w http.ResponseWriter)
+	}{
+		confutil.NewEndpoints().New("example.com", "/*", true).WithRules(
+			rule.NewRateLimiter(1, time.Second),
 		),
-	)
-
-	s := httptest.NewServer(baker)
-	t.Cleanup(s.Close)
-
-	time.Sleep(3 * time.Second)
-
-	httpClient := http.Client{}
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/manifest.json", s.URL), nil)
-	if err != nil {
-		t.Fatal(err)
 	}
+	containers := MockDriver(t, configs...)
 
-	req.Host = "example.com"
+	url := StartBakerServer(t, containers, len(configs))
 
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Run("check if the pattern exists", func(t *testing.T) {
+		httpClient := http.Client{}
+		req, err := http.NewRequest("GET", fmt.Sprintf("%s/manifest.json", url), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+		req.Host = "example.com"
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("return an error because od domain not found", func(t *testing.T) {
+		httpClient := http.Client{}
+		req, err := http.NewRequest("GET", fmt.Sprintf("%s/manifest.json", url), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req.Host = "example2.com"
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		result, _ := io.ReadAll(resp.Body)
+
+		assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+		assert.Equal(t, `{"error": "service is not available"}`, string(result))
+	})
+
+	t.Run("testing RateLimiting", func(t *testing.T) {
+
+		httpClient := http.Client{}
+		req, err := http.NewRequest("GET", fmt.Sprintf("%s/manifest.json", url), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req.Host = "example.com"
+
+		time.Sleep(2 * time.Second)
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		resp, err = httpClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
+
+		time.Sleep(2 * time.Second)
+
+		resp, err = httpClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
 }

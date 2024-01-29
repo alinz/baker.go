@@ -6,8 +6,11 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"testing"
+	"time"
 
 	"github.com/alinz/baker.go"
+	"github.com/alinz/baker.go/pkg/collection"
+	"github.com/alinz/baker.go/rule"
 )
 
 func MockDriver(t *testing.T, confs ...interface{ WriteResponse(w http.ResponseWriter) }) <-chan *baker.Container {
@@ -49,4 +52,31 @@ func MockDriver(t *testing.T, confs ...interface{ WriteResponse(w http.ResponseW
 	})
 
 	return containers
+}
+
+func StartBakerServer(t *testing.T, containers <-chan *baker.Container, size int) (url string) {
+	done := make(chan struct{}, 1)
+
+	baker := baker.New(
+		containers,
+		baker.WithPingDuration(1*time.Second),
+		baker.WithRules(
+			rule.RegisterAppendPath(),
+			rule.RegisterReplacePath(),
+			rule.RegisterRateLimiter(),
+		),
+		baker.WithOnAfterPinger(func(containerSet *collection.Set[string, *baker.Container]) {
+			if containerSet.Len() == size && done != nil {
+				close(done)
+				done = nil
+			}
+		}),
+	)
+
+	s := httptest.NewServer(baker)
+	t.Cleanup(s.Close)
+
+	<-done
+
+	return s.URL
 }

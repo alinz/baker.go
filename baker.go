@@ -164,6 +164,7 @@ type Server struct {
 	http               httpclient.GetterFunc
 	refMap             *collection.Map[*value]
 	middlewareCacheMap *collection.Map[rule.Middleware]
+	onAfterPinger      func(containerSet *collection.Set[string, *Container])
 }
 
 var _ http.Handler = &Server{}
@@ -215,6 +216,10 @@ func (s *Server) pinger() {
 						Paths(endpoint.Domain, true).
 						Service(endpoint.Path, true).
 						Add(container, endpoint)
+				}
+
+				if s.onAfterPinger != nil {
+					s.onAfterPinger(s.containers)
 				}
 
 				return true
@@ -293,18 +298,17 @@ func (s *Server) getMiddlewares(endpoint *Endpoint) ([]rule.Middleware, error) {
 		}
 
 		if middleware.IsCachable() {
+			log.
+				Debug().
+				Str("domain", endpoint.Domain).
+				Str("path", endpoint.Path).
+				Msg("using cached middleware")
 			middleware = s.middlewareCacheMap.GetAndUpdate(endpoint.getHashKey(), func(old rule.Middleware, found bool) rule.Middleware {
-				// NOTE: the reason we are doing this is because we want to update the middleware
-				// and we don;t want to recreate some internal state of the middleware over and over
-				// The responsibility of initializing the internal state of middleware is on the
-				// UpdateMiddleware method.
-				var current rule.Middleware
 				if found {
-					current = old
-				} else {
-					current = middleware
+					return old.UpdateMiddelware(middleware)
 				}
-				return current.UpdateMiddelware(middleware)
+
+				return middleware.UpdateMiddelware(nil)
 			})
 		}
 
@@ -323,8 +327,9 @@ func (s *Server) apply(next http.Handler, rules ...rule.Middleware) http.Handler
 }
 
 type bakerOption struct {
-	rules        map[string]rule.BuilderFunc
-	pingDuration time.Duration
+	rules         map[string]rule.BuilderFunc
+	pingDuration  time.Duration
+	onAfterPinger func(containerSet *collection.Set[string, *Container])
 }
 
 type bakerOptionFunc func(*bakerOption)
@@ -340,6 +345,12 @@ func WithRules(rules ...rule.RegisterFunc) bakerOptionFunc {
 		for _, rule := range rules {
 			rule(o.rules)
 		}
+	}
+}
+
+func WithOnAfterPinger(onAfterPinger func(containerSet *collection.Set[string, *Container])) bakerOptionFunc {
+	return func(o *bakerOption) {
+		o.onAfterPinger = onAfterPinger
 	}
 }
 
@@ -362,6 +373,7 @@ func New(containers <-chan *Container, optFuncs ...bakerOptionFunc) *Server {
 		http:               httpclient.New(),
 		refMap:             collection.NewMap[*value](),
 		middlewareCacheMap: collection.NewMap[rule.Middleware](),
+		onAfterPinger:      opt.onAfterPinger,
 	}
 
 	go s.pinger()
@@ -397,6 +409,11 @@ func New(containers <-chan *Container, optFuncs ...bakerOptionFunc) *Server {
 					// NOTE: if there is no more containers for this endpoint
 					// we can remove the middleware from the cache
 					if remaining == 0 {
+						log.
+							Debug().
+							Str("domain", value.endpoint.Domain).
+							Str("path", value.endpoint.Path).
+							Msg("removing middleware from cache")
 						s.middlewareCacheMap.Delete(value.endpoint.getHashKey())
 					}
 				}

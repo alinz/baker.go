@@ -14,9 +14,6 @@ jobs:
 
       - uses: actions/checkout@v2
       - name: build
-        env:
-          DOCKER_LOGIN: ${{ secrets.DOCKER_LOGIN }}
-          DOCKER_SECRET: ${{ secrets.DOCKER_SECRET }}
         run: |
           GIT_COMMIT=$(git rev-list -1 HEAD)
           VERSION=${{ steps.tag_version.outputs.VERSION }}
