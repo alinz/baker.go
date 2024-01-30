@@ -171,4 +171,4 @@ the above configuration means, in one minute, 100 requests should be routed per 
 
 ## License
 
-Baker.go is licensed under the [MIT License](LICENSE).
+Baker.go is licensed under the [MIT License](LICENSE.md).
