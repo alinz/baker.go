@@ -9,20 +9,20 @@
 
 # Introduction
 
-Baker.go is a dynamic HTTP reverse proxy designed to be highly extensible.
+Baker.go is a dynamic HTTP reverse proxy with a focus on extensibility and flexibility. It is designed to adapt to a variety of orchestration engines and provides dynamic configuration capabilities, eliminating the need to restart the reverse proxy when changing configurations.
 
 # Features
 
-- [x] Include Docker driver to listen to Docker's events
-- [x] Has exposed a driver interface that can be easily hooked to other orchestration engines
-- [x] Dynamic configuration, no need to restart reverse proxy to change the configuration
-- [x] Uses a custom trie data structure, to compute fast path pattern matching
-- [x] It can be used as a library as it has implemented HTTP`.`Handler` interface
-- [x] Highly extendable as most of the components have exposed interfaces
-- [x] Middleware-like feature to change the incoming and outgoing traffic
-- [x] load balancing by default
-- [x] Automatically updates and creates SSL certificates using `Let's Encrypt`
-- [x] Configurable Rate Limiter per Domain and Path
+- Docker driver integration for Docker event listening.
+- Exposed driver interface for easy integration with other orchestration engines.
+- Dynamic configuration capabilities.
+- Custom trie data structure for fast path pattern matching.
+- Can be used as a library, as it implements the HTTP Handler interface.
+- High extensibility due to exposed interfaces for most components.
+- Middleware-like feature for modifying incoming and outgoing traffic.
+- Default load balancing.
+- Automatic SSL certificate updates and creation using Let's Encrypt.
+- Configurable rate limiter per domain and path.
 
 # Usage
 
@@ -85,7 +85,7 @@ networks:
       name: baker_net
 ```
 
-The service should expose a REST endpoint that returns a configuration, the configuration endpoint acts as a health check and provides real-time configuration:
+The service should expose a REST endpoint that returns a configuration. This endpoint acts as a health check and provides real-time configuration.
 
 ```json
 [
@@ -119,7 +119,7 @@ The service should expose a REST endpoint that returns a configuration, the conf
 
 # Middleware
 
-At the moment, there are 2 middlewares provided by default
+Baker.go comes with several built-in middleware:
 
 ### ReplacePath
 
@@ -167,4 +167,8 @@ to use this middleware, simply add the following rule to the riles sections of t
 }
 ```
 
-the above configuration means, in each 1 min, 100 request should be routed per individual IP address
+the above configuration means, in one minute, 100 requests should be routed per individual IP address, if that is exceeded, a 429 HTTP status will be sent back to the client.
+
+## License
+
+Baker.go is licensed under the [MIT License](LICENSE).
